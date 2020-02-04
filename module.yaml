@@ -1,0 +1,136 @@
+---
+document: modulemd
+version: 2
+data:
+#  name: modulename
+#  stream: modulestream
+  version: 0
+  context: deadbeef
+  arch: coolarch
+  summary: Module Summary
+  description: >-
+    Module Description
+  api:
+    rpms:
+      - rpm_a
+      - rpm_b
+  filter:
+    rpms: rpm_c
+
+  artifacts:
+    rpms:
+      - bar-0:1.23-1.module_deadbeef.x86_64
+
+  servicelevels:
+    rawhide: {}
+    production:
+      eol: 2099-12-31
+
+  license:
+    content:
+      - BSD
+      - GPLv2+
+    module: MIT
+
+  dependencies:
+    - buildrequires:
+          platform: [-f27, -f28, -epel7]
+      requires:
+          platform: [-f27, -f28, -epel7]
+    - buildrequires:
+          platform: [f27]
+          buildtools: [v1, v2]
+          compatible: [v3]
+      requires:
+          platform: [f27]
+          compatible: [v3, v4]
+    - buildrequires:
+          platform: [f28]
+      requires:
+          platform: [f28]
+          runtime: [a, b]
+    - buildrequires:
+          platform: [epel7]
+          extras: []
+          moreextras: [foo, bar]
+      requires:
+          platform: [epel7]
+          extras: []
+          moreextras: [foo, bar]
+  references:
+        community: http://www.example.com/
+        documentation: http://www.example.com/
+        tracker: http://www.example.com/
+  profiles:
+        default:
+            rpms:
+                - bar
+                - bar-extras
+                - baz
+        container:
+            rpms:
+                - bar
+                - bar-devel
+        minimal:
+            description: Minimal profile installing only the bar package.
+            rpms:
+                - bar
+        buildroot:
+            rpms:
+                - bar-devel
+        srpm-buildroot:
+            rpms:
+                - bar-extras
+  buildopts:
+        rpms:
+            macros: |
+                %demomacro 1
+                %demomacro2 %{demomacro}23
+            whitelist:
+                - fooscl-1-bar
+                - fooscl-1-baz
+                - xxx
+                - xyz
+#       arches: [i686, x86_64]
+  components:
+        rpms:
+            bar:
+                rationale: We need this to demonstrate stuff.
+                repository: https://pagure.io/bar.git
+                cache: https://example.com/cache
+                ref: 26ca0c0
+            baz:
+                rationale: This one is here to demonstrate other stuff.
+            xxx:
+                rationale: xxx demonstrates arches and multilib.
+                arches: [i686, x86_64]
+                multilib: [x86_64]
+            xyz:
+                rationale: xyz is a bundled dependency of xxx.
+                buildorder: 10
+        modules:
+            includedmodule:
+                rationale: Included in the stack, just because.
+                repository: https://pagure.io/includedmodule.git
+                ref: somecoolbranchname
+                buildorder: 100
+  xmd:
+        some_key: some_data
+        some_list:
+            - a
+            - b
+        some_dict:
+            a: alpha
+            b: beta
+            some_other_list:
+                - c
+                - d
+            some_other_dict:
+                another_key: more_data
+                yet_another_key:
+                    - this
+                    - is
+                    - getting
+                    - silly
+        can_bool: TRUE
+...
