@@ -95,7 +95,15 @@ function mmd_run_docker_tests {
         -t fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE \
         --build-arg TARBALL=${TARBALL} .
 
-    $MMD_OCI run --rm fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE
+    # For debugging, don't automatically remove the container so the logs can
+    # be analyzed.
+    # After test run has completed, run "podman ps -a" to find container id.
+    # Then run "podman commit container_id _user_/test_image"
+    # Then run "podman run -it -v $PWD:/mnt:z --entrypoint=bash _user_/test_image"
+    # Output can be found in /builddir/travis/meson-logs/testlog.txt
+    # Don't forget to run "podman rm container_id" when done debugging.
+    # $MMD_OCI run --rm fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE
+    $MMD_OCI run fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE
 }
 
 set +x

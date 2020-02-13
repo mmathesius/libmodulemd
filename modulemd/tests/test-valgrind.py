@@ -48,6 +48,8 @@ with tempfile.TemporaryDirectory(prefix="libmodulemd_valgrind_") as tmpdirname:
             "--leak-check=full "
             "--suppressions=/usr/share/glib-2.0/valgrind/glib.supp "
             "--suppressions=%s "
+            "--gen-suppressions=all "
+            "--show-possibly-lost=no "
             "--xml=yes "
             "--xml-file=%s/%s.xml " % (supp_file, tmpdirname, test)
         )
