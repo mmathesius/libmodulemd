@@ -62,6 +62,10 @@ jobs:
       script: ./.travis/travis-fedora.sh
       arch: amd64
 
+    - name: "Fedora rawhide x86_64 python39"
+      script: ./.travis/travis-fedora.sh
+      arch: amd64
+
 
     - stage: Other Distributions
       name: "openSUSE tumbleweed"

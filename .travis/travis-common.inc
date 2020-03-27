@@ -63,6 +63,7 @@ function mmd_run_docker_tests {
     os=${os-fedora}
     release=${release-rawhide}
     repository=${repository-registry.fedoraproject.org}
+    python=${python-default}
 
 
     # Lower-case the os and release for the container registry
@@ -80,10 +81,10 @@ function mmd_run_docker_tests {
     popd
 
     sed -e "s#@IMAGE@#$repository/$image#" $SCRIPT_DIR/$MMD_OS/Dockerfile.deps.tmpl \
-        | m4 -D_RELEASE_=$release \
+        | m4 -D_RELEASE_=$release -D_PYTHON_=$python \
         > $SCRIPT_DIR/$MMD_OS/Dockerfile.deps.$MMD_RELEASE
     sed -e "s/@RELEASE@/$MMD_OS:$MMD_RELEASE/" $SCRIPT_DIR/$MMD_OS/Dockerfile.tmpl \
-        | m4 -D_RELEASE_=$release \
+        | m4 -D_RELEASE_=$release -D_PYTHON_=$python \
         > $SCRIPT_DIR/$MMD_OS/Dockerfile-$MMD_RELEASE
 
     $MMD_BUILDAH $MMD_LAYERS_TRUE \
