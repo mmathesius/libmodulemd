@@ -97,3 +97,78 @@
    ...
    fun:_PyImport_LoadDynamicModuleWithSpec
 }
+# Arch Linux needs some of the broad suppressions included in (but
+# commented out of) the Python valgrind-python.supp file.
+{
+   ADDRESS_IN_RANGE/Invalid read of size 4
+   Memcheck:Addr4
+   fun:PyObject_Free
+}
+{
+   ADDRESS_IN_RANGE/Invalid read of size 4
+   Memcheck:Value4
+   fun:PyObject_Free
+}
+{
+   ADDRESS_IN_RANGE/Conditional jump or move depends on uninitialised value
+   Memcheck:Cond
+   fun:PyObject_Free
+}
+{
+   ADDRESS_IN_RANGE/Invalid read of size 4
+   Memcheck:Addr4
+   fun:PyObject_Realloc
+}
+{
+   ADDRESS_IN_RANGE/Invalid read of size 4
+   Memcheck:Value4
+   fun:PyObject_Realloc
+}
+{
+   ADDRESS_IN_RANGE/Conditional jump or move depends on uninitialised value
+   Memcheck:Cond
+   fun:PyObject_Realloc
+}
+# size 8 versions of above
+{
+   ADDRESS_IN_RANGE/Invalid read of size 8
+   Memcheck:Addr8
+   fun:PyObject_Free
+}
+{
+   ADDRESS_IN_RANGE/Invalid read of size 8
+   Memcheck:Value8
+   fun:PyObject_Free
+}
+{
+   ADDRESS_IN_RANGE/Invalid read of size 8
+   Memcheck:Addr8
+   fun:PyObject_Realloc
+}
+{
+   ADDRESS_IN_RANGE/Invalid read of size 8
+   Memcheck:Value8
+   fun:PyObject_Realloc
+}
+# Additional suppressions for Arch Linux Python
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   ...
+   obj:/usr/lib/libpython3.8.so*
+   fun:_PyGC_CollectNoFail
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   ...
+   obj:/usr/lib/libpython3.8.so*
+   fun:_PyGC_CollectNoFail
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   ...
+   obj:/usr/lib/libpython3.8.so*
+   fun:_PyGC_CollectNoFail
+}
