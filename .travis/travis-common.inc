@@ -95,7 +95,8 @@ function mmd_run_docker_tests {
         -t fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE \
         --build-arg TARBALL=${TARBALL} .
 
-    $MMD_OCI run --rm fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE
+#   $MMD_OCI run --rm fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE
+    $MMD_OCI run fedora-modularity/libmodulemd-$MMD_OS:$MMD_RELEASE
 }
 
 set +x
