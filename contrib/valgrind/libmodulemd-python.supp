@@ -172,3 +172,39 @@
    obj:/usr/lib/libpython3.8.so*
    fun:_PyGC_CollectNoFail
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Addr4
+   obj:/usr/lib/libpython3.8.so.1.0
+   ...
+   fun:PyImport_Cleanup
+   fun:Py_FinalizeEx
+   fun:Py_Exit
+   obj:/usr/lib/libpython3.8.so.1.0
+   obj:/usr/lib/libpython3.8.so.1.0
+   fun:PyRun_SimpleFileExFlags
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libpython3.8.so.1.0
+   ...
+   fun:PyImport_Cleanup
+   fun:Py_FinalizeEx
+   fun:Py_Exit
+   obj:/usr/lib/libpython3.8.so.1.0
+   obj:/usr/lib/libpython3.8.so.1.0
+   fun:PyRun_SimpleFileExFlags
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libpython3.8.so.1.0
+   ...
+   fun:PyImport_Cleanup
+   fun:Py_FinalizeEx
+   fun:Py_Exit
+   obj:/usr/lib/libpython3.8.so.1.0
+   obj:/usr/lib/libpython3.8.so.1.0
+   fun:PyRun_SimpleFileExFlags
+}
