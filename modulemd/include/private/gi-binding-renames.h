@@ -247,6 +247,63 @@ modulemd_module_stream_v2_get_servicelevel_names (
   ModulemdModuleStreamV2 *self);
 
 /**
+ * modulemd_module_stream_v3_get_module_component_names: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_module_component_names (
+  ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_rpm_component_names: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_rpm_component_names (
+  ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_content_licenses: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_content_licenses (ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_module_licenses: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_module_licenses (ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_profile_names: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_profile_names (ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_rpm_api: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_rpm_api (ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_rpm_artifacts: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_rpm_artifacts (ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_rpm_filters: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_rpm_filters (ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_servicelevel_names: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_servicelevel_names (
+  ModulemdModuleStreamV3 *self);
+
+/**
  * modulemd_profile_get_rpms: (skip)
  */
 GStrv
