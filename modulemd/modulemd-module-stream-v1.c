@@ -26,7 +26,6 @@
 #include "private/modulemd-component-module-private.h"
 #include "private/modulemd-component-private.h"
 #include "private/modulemd-component-rpm-private.h"
-#include "private/modulemd-dependencies-private.h"
 #include "private/modulemd-module-stream-private.h"
 #include "private/modulemd-module-stream-v1-private.h"
 #include "private/modulemd-profile-private.h"
