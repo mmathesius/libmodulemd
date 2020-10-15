@@ -25,7 +25,6 @@
 #include "private/modulemd-component-module-private.h"
 #include "private/modulemd-component-private.h"
 #include "private/modulemd-component-rpm-private.h"
-#include "private/modulemd-dependencies-private.h"
 #include "private/modulemd-module-stream-private.h"
 #include "private/modulemd-module-stream-v3-private.h"
 #include "private/modulemd-profile-private.h"
@@ -94,8 +93,6 @@ modulemd_module_stream_v3_finalize (GObject *object)
   g_clear_pointer (&self->rpm_artifact_map, g_hash_table_unref);
 
   g_clear_pointer (&self->rpm_filters, g_hash_table_unref);
-
-  g_clear_pointer (&self->dependencies, g_ptr_array_unref);
 
   g_clear_pointer (&self->obsoletes, g_object_unref);
 
@@ -215,23 +212,6 @@ modulemd_module_stream_v3_equals (ModulemdModuleStream *self_1,
       return FALSE;
     }
 
-
-  if (v3_self_1->dependencies->len != v3_self_2->dependencies->len)
-    {
-      return FALSE;
-    }
-
-  for (guint i = 0; i < v3_self_1->dependencies->len; i++)
-    {
-      /*Ordering is important for the dependencies, 
-       so that each array index must be the same.*/
-      if (!modulemd_dependencies_equals (
-            g_ptr_array_index (v3_self_1->dependencies, i),
-            g_ptr_array_index (v3_self_2->dependencies, i)))
-        {
-          return FALSE;
-        }
-    }
 
   if (v3_self_1->xmd == NULL && v3_self_2->xmd == NULL)
     {
@@ -1038,72 +1018,6 @@ modulemd_module_stream_v3_get_rpm_filters_as_strv (
 
 
 void
-modulemd_module_stream_v3_add_dependencies (ModulemdModuleStreamV3 *self,
-                                            ModulemdDependencies *deps)
-{
-  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
-
-  g_ptr_array_add (self->dependencies, modulemd_dependencies_copy (deps));
-}
-
-
-void
-modulemd_module_stream_v3_replace_dependencies (ModulemdModuleStreamV3 *self,
-                                                GPtrArray *array)
-{
-  gsize i;
-  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
-
-  for (i = 0; i < array->len; i++)
-    {
-      modulemd_module_stream_v3_add_dependencies (
-        self, g_ptr_array_index (array, i));
-    }
-}
-
-
-void
-modulemd_module_stream_v3_clear_dependencies (ModulemdModuleStreamV3 *self)
-{
-  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
-
-  g_ptr_array_set_size (self->dependencies, 0);
-}
-
-
-static gboolean
-dep_equal_wrapper (gconstpointer a, gconstpointer b)
-{
-  return modulemd_dependencies_equals ((ModulemdDependencies *)a,
-                                       (ModulemdDependencies *)b);
-}
-
-
-void
-modulemd_module_stream_v3_remove_dependencies (ModulemdModuleStreamV3 *self,
-                                               ModulemdDependencies *deps)
-{
-  guint index;
-  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
-
-  while (g_ptr_array_find_with_equal_func (
-    self->dependencies, deps, dep_equal_wrapper, &index))
-    {
-      g_ptr_array_remove_index (self->dependencies, index);
-    }
-}
-
-
-GPtrArray *
-modulemd_module_stream_v3_get_dependencies (ModulemdModuleStreamV3 *self)
-{
-  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
-
-  return self->dependencies;
-}
-
-
-void
 modulemd_module_stream_v3_set_xmd (ModulemdModuleStreamV3 *self, GVariant *xmd)
 {
   g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
@@ -1179,7 +1093,6 @@ modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
   const gchar *context = NULL;
   gchar *nevra = NULL;
   ModulemdModuleStreamV3 *v3_self = NULL;
-  ModulemdDependencies *deps = NULL;
   g_autoptr (GError) nested_error = NULL;
   g_auto (GStrv) buildopts_arches = NULL;
 
@@ -1263,20 +1176,6 @@ modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
                        MMD_ERROR_VALIDATE,
                        "Artifact '%s' was not in valid N-E:V-R.A format.",
                        nevra);
-          return FALSE;
-        }
-    }
-
-  /* Iterate through the Dependencies and validate them */
-  for (guint i = 0; i < v3_self->dependencies->len; i++)
-    {
-      deps =
-        MODULEMD_DEPENDENCIES (g_ptr_array_index (v3_self->dependencies, i));
-      if (!modulemd_dependencies_validate (deps, &nested_error))
-        {
-          g_propagate_prefixed_error (error,
-                                      g_steal_pointer (&nested_error),
-                                      "Dependency failed to validate: ");
           return FALSE;
         }
     }
@@ -1426,8 +1325,6 @@ modulemd_module_stream_v3_copy (ModulemdModuleStream *self,
   COPY_HASHTABLE_BY_VALUE_ADDER (
     copy, v3_self, profiles, modulemd_module_stream_v3_add_profile);
 
-  STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, dependencies);
-
   copy_rpm_artifact_map (v3_self, copy);
 
   STREAM_COPY_IF_SET (v3, copy, v3_self, xmd);
@@ -1436,65 +1333,6 @@ modulemd_module_stream_v3_copy (ModulemdModuleStream *self,
     copy, modulemd_module_stream_v3_get_obsoletes (v3_self));
 
   return MODULEMD_MODULE_STREAM (g_steal_pointer (&copy));
-}
-
-
-static gboolean
-depends_on_stream (ModulemdModuleStreamV3 *self,
-                   const gchar *module_name,
-                   const gchar *stream_name,
-                   gboolean is_builddep)
-{
-  ModulemdDependencies *dep = NULL;
-
-  /* Iterate through all of the dependency objects */
-  for (gint i = 0; i < self->dependencies->len; i++)
-    {
-      dep = g_ptr_array_index (self->dependencies, i);
-      if (is_builddep)
-        {
-          if (modulemd_dependencies_buildrequires_module_and_stream (
-                dep, module_name, stream_name))
-            {
-              return TRUE;
-            }
-        }
-      else
-        {
-          if (modulemd_dependencies_requires_module_and_stream (
-                dep, module_name, stream_name))
-            {
-              return TRUE;
-            }
-        }
-    }
-
-  return FALSE;
-}
-
-static gboolean
-modulemd_module_stream_v3_depends_on_stream (ModulemdModuleStream *self,
-                                             const gchar *module_name,
-                                             const gchar *stream_name)
-{
-  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), FALSE);
-  g_return_val_if_fail (module_name && stream_name, FALSE);
-
-  return depends_on_stream (
-    MODULEMD_MODULE_STREAM_V3 (self), module_name, stream_name, FALSE);
-}
-
-
-static gboolean
-modulemd_module_stream_v3_build_depends_on_stream (ModulemdModuleStream *self,
-                                                   const gchar *module_name,
-                                                   const gchar *stream_name)
-{
-  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), FALSE);
-  g_return_val_if_fail (module_name && stream_name, FALSE);
-
-  return depends_on_stream (
-    MODULEMD_MODULE_STREAM_V3 (self), module_name, stream_name, TRUE);
 }
 
 
@@ -1513,10 +1351,6 @@ modulemd_module_stream_v3_class_init (ModulemdModuleStreamV3Class *klass)
   stream_class->copy = modulemd_module_stream_v3_copy;
   stream_class->equals = modulemd_module_stream_v3_equals;
   stream_class->validate = modulemd_module_stream_v3_validate;
-  stream_class->depends_on_stream =
-    modulemd_module_stream_v3_depends_on_stream;
-  stream_class->build_depends_on_stream =
-    modulemd_module_stream_v3_build_depends_on_stream;
 
 
   properties[PROP_ARCH] = g_param_spec_string (
@@ -1588,11 +1422,6 @@ modulemd_module_stream_v3_init (ModulemdModuleStreamV3 *self)
 
   self->rpm_filters =
     g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-
-  /* The common case is for a single entry, so we'll optimize for that when
-   * preallocating
-   */
-  self->dependencies = g_ptr_array_new_full (1, g_object_unref);
 }
 
 
@@ -1601,12 +1430,6 @@ modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
                                           ModulemdModuleStreamV3 *modulestream,
                                           gboolean strict,
                                           GError **error);
-
-static gboolean
-modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
-                                      ModulemdModuleStreamV3 *modulestream,
-                                      gboolean strict,
-                                      GError **error);
 
 static gboolean
 modulemd_module_stream_v3_parse_refs (yaml_parser_t *parser,
@@ -1790,18 +1613,6 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
                 }
               modulemd_module_stream_v3_set_xmd (modulestream, xmd);
               g_clear_pointer (&xmd, g_variant_unref);
-            }
-
-          /* Dependencies */
-          else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "dependencies"))
-            {
-              if (!modulemd_module_stream_v3_parse_deps (
-                    &parser, modulestream, strict, &nested_error))
-                {
-                  g_propagate_error (error, g_steal_pointer (&nested_error));
-                  return NULL;
-                }
             }
 
           /* References */
@@ -2009,68 +1820,6 @@ modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
 
 
 static gboolean
-modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
-                                      ModulemdModuleStreamV3 *modulestream,
-                                      gboolean strict,
-                                      GError **error)
-{
-  MODULEMD_INIT_TRACE ();
-  MMD_INIT_YAML_EVENT (event);
-  gboolean done = FALSE;
-  g_autoptr (ModulemdDependencies) deps = NULL;
-  g_autoptr (GError) nested_error = NULL;
-
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  /* Process through the sequence */
-  /* We *must* get a SEQUENCE_START here */
-  YAML_PARSER_PARSE_WITH_EXIT_BOOL (parser, &event, error);
-  if (event.type != YAML_SEQUENCE_START_EVENT)
-    {
-      MMD_YAML_ERROR_EVENT_EXIT_BOOL (
-        error,
-        event,
-        "Got %s instead of SEQUENCE_START in dependencies.",
-        mmd_yaml_get_event_name (event.type));
-    }
-
-  while (!done)
-    {
-      YAML_PARSER_PARSE_WITH_EXIT_BOOL (parser, &event, error);
-
-      switch (event.type)
-        {
-        case YAML_SEQUENCE_END_EVENT: done = TRUE; break;
-
-        case YAML_MAPPING_START_EVENT:
-          deps =
-            modulemd_dependencies_parse_yaml (parser, strict, &nested_error);
-          if (!deps)
-            {
-              g_propagate_error (error, g_steal_pointer (&nested_error));
-              return FALSE;
-            }
-
-          modulemd_module_stream_v3_add_dependencies (modulestream, deps);
-          g_clear_object (&deps);
-          break;
-
-        default:
-          MMD_YAML_ERROR_EVENT_EXIT_BOOL (
-            error,
-            event,
-            "Unexpected YAML event in dependencies: %s",
-            mmd_yaml_get_event_name (event.type));
-          break;
-        }
-      yaml_event_delete (&event);
-    }
-
-  return TRUE;
-}
-
-
-static gboolean
 modulemd_module_stream_v3_parse_refs (yaml_parser_t *parser,
                                       ModulemdModuleStreamV3 *modulestream,
                                       gboolean strict,
@@ -2092,7 +1841,7 @@ modulemd_module_stream_v3_parse_refs (yaml_parser_t *parser,
       MMD_YAML_ERROR_EVENT_EXIT_BOOL (
         error,
         event,
-        "Got %s instead of MAPPING_START in dependencies.",
+        "Got %s instead of MAPPING_START in references.",
         mmd_yaml_get_event_name (event.type));
     }
 
@@ -2162,7 +1911,7 @@ modulemd_module_stream_v3_parse_refs (yaml_parser_t *parser,
           MMD_YAML_ERROR_EVENT_EXIT_BOOL (
             error,
             event,
-            "Unexpected YAML event in dependencies: %s",
+            "Unexpected YAML event in references: %s",
             mmd_yaml_get_event_name (event.type));
           break;
         }
@@ -2227,7 +1976,7 @@ modulemd_module_stream_v3_parse_profiles (yaml_parser_t *parser,
           MMD_YAML_ERROR_EVENT_EXIT_BOOL (
             error,
             event,
-            "Unexpected YAML event in dependencies: %s",
+            "Unexpected YAML event in profiles: %s",
             mmd_yaml_get_event_name (event.type));
           break;
         }
@@ -2777,12 +2526,6 @@ modulemd_module_stream_v3_emit_yaml (ModulemdModuleStreamV3 *self,
           return FALSE;
         }
     }
-
-  EMIT_ARRAY_VALUES_IF_NON_EMPTY (emitter,
-                                  error,
-                                  "dependencies",
-                                  self->dependencies,
-                                  modulemd_dependencies_emit_yaml);
 
   if (self->community || self->documentation || self->tracker)
     {

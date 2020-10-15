@@ -42,6 +42,7 @@ struct _ModulemdModuleStreamV3
   gchar *documentation;
   gchar *summary;
   gchar *tracker;
+  gchar *platform;
 
   /* Internal Data Structures */
   GHashTable *module_components; /* <string, Modulemd.ComponentModule */
@@ -61,7 +62,8 @@ struct _ModulemdModuleStreamV3
 
   GHashTable *rpm_filters; /* string set */
 
-  GPtrArray *dependencies; /* <Modulemd.Dependencies> */
+  GHashTable *buildtime_deps; /* <string, string> */
+  GHashTable *runtime_deps; /* <string, string> */
 
   ModulemdObsoletes *obsoletes;
 
@@ -181,22 +183,6 @@ modulemd_module_stream_v3_replace_rpm_artifacts (ModulemdModuleStreamV3 *self,
 void
 modulemd_module_stream_v3_replace_rpm_filters (ModulemdModuleStreamV3 *self,
                                                GHashTable *set);
-
-/**
- * modulemd_module_stream_v3_replace_dependencies:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- * @array: (in): A #GPtrArray of #ModulemdDependencies objects for this module
- * stream.
- *
- * Any existing dependencies associated with module stream @self are removed
- * and replaced by @array.
- *
- * Since: 2.10
- */
-void
-modulemd_module_stream_v3_replace_dependencies (ModulemdModuleStreamV3 *self,
-                                                GPtrArray *array);
-
 
 /**
  * modulemd_module_stream_v3_includes_nevra:

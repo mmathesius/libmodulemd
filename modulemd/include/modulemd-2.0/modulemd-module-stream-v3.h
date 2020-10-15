@@ -17,7 +17,6 @@
 #include "modulemd-component-module.h"
 #include "modulemd-component-rpm.h"
 #include "modulemd-component.h"
-#include "modulemd-dependencies.h"
 #include "modulemd-module-stream.h"
 #include "modulemd-profile.h"
 #include "modulemd-rpm-map-entry.h"
@@ -760,63 +759,6 @@ modulemd_module_stream_v3_clear_rpm_filters (ModulemdModuleStreamV3 *self);
 GStrv
 modulemd_module_stream_v3_get_rpm_filters_as_strv (
   ModulemdModuleStreamV3 *self);
-
-
-/**
- * modulemd_module_stream_v3_add_dependencies:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- * @deps: (in): A #ModulemdDependencies object to add to the list for this
- * module stream.
- *
- * Add a #ModulemdDependencies object to the list of dependencies for this
- * module stream.
- *
- * Since: 2.10
- */
-void
-modulemd_module_stream_v3_add_dependencies (ModulemdModuleStreamV3 *self,
-                                            ModulemdDependencies *deps);
-
-
-/**
- * modulemd_module_stream_v3_clear_dependencies:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- *
- * Empties the list of dependencies for this #ModulemdModuleStream.
- *
- * Since: 2.10
- */
-void
-modulemd_module_stream_v3_clear_dependencies (ModulemdModuleStreamV3 *self);
-
-
-/**
- * modulemd_module_stream_v3_remove_dependencies:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- * @deps: (in): A #ModulemdDependencies object to remove from the list for this
- * module stream.
- *
- * Removes all entries matching @deps from the array of #ModulemdDependencies
- * objects.
- *
- * Since: 2.10
- */
-void
-modulemd_module_stream_v3_remove_dependencies (ModulemdModuleStreamV3 *self,
-                                               ModulemdDependencies *deps);
-
-
-/**
- * modulemd_module_stream_v3_get_dependencies:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- *
- * Return the list of #ModulemdDependencies objects as a #GPtrArray.
- *
- * Returns: (transfer none) (element-type ModulemdDependencies): A list of
- * all #ModulemdDependencies objects associated with this module stream.
- */
-GPtrArray *
-modulemd_module_stream_v3_get_dependencies (ModulemdModuleStreamV3 *self);
 
 
 /**
