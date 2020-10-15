@@ -165,6 +165,13 @@ add_subdoc (ModulemdModuleIndex *self,
               subdoc, strict, doctype == MODULEMD_YAML_DOC_PACKAGER, error));
           break;
 
+        case MD_MODULESTREAM_VERSION_THREE:
+          /* TODO: untangle PACKAGER V3 from this*/
+          stream =
+            MODULEMD_MODULE_STREAM (modulemd_module_stream_v3_parse_yaml (
+              subdoc, strict, error));
+          break;
+
         default:
           g_set_error (error,
                        MODULEMD_YAML_ERROR,

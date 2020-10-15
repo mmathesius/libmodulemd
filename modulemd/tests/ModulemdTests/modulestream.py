@@ -33,6 +33,7 @@ from base import TestBase
 modulestream_versions = [
     Modulemd.ModuleStreamVersionEnum.ONE,
     Modulemd.ModuleStreamVersionEnum.TWO,
+    Modulemd.ModuleStreamVersionEnum.THREE,
 ]
 
 
@@ -493,6 +494,9 @@ class TestModuleStream(TestBase):
 
     def test_servicelevels(self):
         for version in modulestream_versions:
+            # servicelevels are not supported after v2
+            if version > Modulemd.ModuleStreamVersionEnum.TWO:
+                continue
             stream = Modulemd.ModuleStream.new(version)
             sl = Modulemd.ServiceLevel.new("rawhide")
             sl.set_eol_ymd(1980, 3, 2)
@@ -601,7 +605,7 @@ class TestModuleStream(TestBase):
 
             self.assertIsNotNone(out_yaml)
 
-    def test_upgrade(self):
+    def test_upgrade_v1_to_v2(self):
         v1_stream = Modulemd.ModuleStreamV1.new("SuperModule", "latest")
         v1_stream.set_summary("Summary")
         v1_stream.set_description("Description")
@@ -612,7 +616,7 @@ class TestModuleStream(TestBase):
         v1_stream.add_runtime_requirement("ModuleA", "streamZ")
         v1_stream.add_runtime_requirement("ModuleB", "streamY")
 
-        v2_stream = v1_stream.upgrade(Modulemd.ModuleStreamVersionEnum.LATEST)
+        v2_stream = v1_stream.upgrade(Modulemd.ModuleStreamVersionEnum.TWO)
         self.assertIsNotNone(v2_stream)
 
         idx = Modulemd.ModuleIndex.new()
@@ -642,6 +646,14 @@ data:
 ...
 """,
         )
+
+    def test_upgrade_v2_to_v3(self):
+        # TODO: implement test
+        pass
+
+    def test_upgrade_v1_to_v3(self):
+        # TODO: implement test
+        pass
 
     def test_v2_yaml(self):
         yaml = """
@@ -1171,6 +1183,9 @@ data:
     def test_depends_on_stream(self):
 
         for version in modulestream_versions:
+            # TODO: don't skip for v3
+            if version == Modulemd.ModuleStreamVersionEnum.THREE:
+                continue
             stream = Modulemd.ModuleStream.read_file(
                 "%s/dependson_v%d.yaml"
                 % (os.getenv("TEST_DATA_PATH"), version),

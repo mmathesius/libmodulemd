@@ -736,9 +736,9 @@ module_test_add_stream_to_module_with_obsoletes (void)
   g_clear_pointer (&o, g_object_unref);
 
   s = modulemd_module_stream_new (
-    MD_MODULESTREAM_VERSION_LATEST, "nodejs", "8.0");
+    MD_MODULESTREAM_VERSION_TWO, "nodejs", "8.0");
   modulemd_module_stream_set_context (s, "42");
-  modulemd_module_add_stream (m, s, MD_MODULESTREAM_VERSION_LATEST, NULL);
+  modulemd_module_add_stream (m, s, MD_MODULESTREAM_VERSION_TWO, NULL);
   g_clear_pointer (&s, g_object_unref);
 
   streams = modulemd_module_get_all_streams (m);

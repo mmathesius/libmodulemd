@@ -519,7 +519,7 @@ module_stream_v2_test_rpm_filters (void)
 }
 
 static void
-module_stream_test_upgrade (void)
+module_stream_test_upgrade_v1_to_v2 (void)
 {
   gboolean ret;
   g_autoptr (ModulemdModuleStreamV1) streamV1 = NULL;
@@ -544,7 +544,7 @@ module_stream_test_upgrade (void)
     streamV1, "ModuleB", "streamY");
 
   updated_stream = modulemd_module_stream_upgrade (
-    MODULEMD_MODULE_STREAM (streamV1), MD_MODULESTREAM_VERSION_LATEST, &error);
+    MODULEMD_MODULE_STREAM (streamV1), MD_MODULESTREAM_VERSION_TWO, &error);
 
   g_assert_no_error (error);
   g_assert_nonnull (updated_stream);
@@ -587,6 +587,18 @@ module_stream_test_upgrade (void)
   g_clear_object (&index);
   g_clear_object (&error);
   g_clear_pointer (&yaml_str, g_free);
+}
+
+static void
+module_stream_test_upgrade_v2_to_v3 (void)
+{
+  /* TODO: implement test */
+}
+
+static void
+module_stream_test_upgrade_v1_to_v3 (void)
+{
+  /* TODO: implement test */
 }
 
 static void
@@ -3285,8 +3297,14 @@ main (int argc, char *argv[])
   g_test_add_func ("/modulemd/v2/packager/v2_sanity",
                    module_packager_v2_sanity);
 
-  g_test_add_func ("/modulemd/v2/modulestream/upgrade",
-                   module_stream_test_upgrade);
+  g_test_add_func ("/modulemd/v2/modulestream/upgrade_v1_to_v2",
+                   module_stream_test_upgrade_v1_to_v2);
+
+  g_test_add_func ("/modulemd/v2/modulestream/upgrade_v2_to_v3",
+                   module_stream_test_upgrade_v2_to_v3);
+
+  g_test_add_func ("/modulemd/v2/modulestream/upgrade_v1_to_v3",
+                   module_stream_test_upgrade_v1_to_v3);
 
   g_test_add_func ("/modulemd/v2/modulestream/v1/rpm_artifacts",
                    module_stream_v1_test_rpm_artifacts);

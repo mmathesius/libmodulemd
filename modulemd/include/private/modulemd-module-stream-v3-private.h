@@ -61,8 +61,6 @@ struct _ModulemdModuleStreamV3
 
   GHashTable *rpm_filters; /* string set */
 
-  GHashTable *servicelevels; /* <string, Modulemd.ServiceLevel */
-
   GPtrArray *dependencies; /* <Modulemd.Dependencies> */
 
   ModulemdObsoletes *obsoletes;
@@ -77,9 +75,6 @@ struct _ModulemdModuleStreamV3
  * document.
  * @strict: (in): Whether the parser should return failure if it encounters an
  * unknown mapping key or if it should ignore it.
- * @only_packager: (in): Whether the parser should return failure if it
- * encounters a mapping key that is not intended for packager use. Ignored
- * if @strict is #FALSE.
  * @error: (out): A #GError that will return the reason for a parsing or
  * validation error.
  *
@@ -92,7 +87,6 @@ struct _ModulemdModuleStreamV3
 ModulemdModuleStreamV3 *
 modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
                                       gboolean strict,
-                                      gboolean only_packager,
                                       GError **error);
 
 /**

@@ -68,6 +68,10 @@ modulemd_module_stream_new (guint64 mdversion,
       return MODULEMD_MODULE_STREAM (
         modulemd_module_stream_v2_new (module_name, module_stream));
 
+    case MD_MODULESTREAM_VERSION_THREE:
+      return MODULEMD_MODULE_STREAM (
+        modulemd_module_stream_v3_new (module_name, module_stream));
+
     default:
       /* Other versions have not yet been implemented */
       return NULL;
@@ -245,6 +249,24 @@ modulemd_module_stream_read_yaml (yaml_parser_t *parser,
     case MD_MODULESTREAM_VERSION_TWO:
       stream = MODULEMD_MODULE_STREAM (modulemd_module_stream_v2_parse_yaml (
         subdoc, strict, doctype == MODULEMD_YAML_DOC_PACKAGER, &nested_error));
+      if (!stream)
+        {
+          g_propagate_error (error, g_steal_pointer (&nested_error));
+          return NULL;
+        }
+      break;
+
+    case MD_MODULESTREAM_VERSION_THREE:
+      if (doctype == MODULEMD_YAML_DOC_PACKAGER)
+        {
+	  g_set_error (error,
+		       MODULEMD_YAML_ERROR,
+		       MMD_YAML_ERROR_PROGRAMMING,
+		       "Incorrect function to parse modulemd-packager v3");
+	  return NULL;
+	}
+      stream = MODULEMD_MODULE_STREAM (modulemd_module_stream_v3_parse_yaml (
+        subdoc, strict, &nested_error));
       if (!stream)
         {
           g_propagate_error (error, g_steal_pointer (&nested_error));
@@ -472,7 +494,8 @@ modulemd_module_stream_upgrade (ModulemdModuleStream *self,
   if (!mdversion)
     {
       /* If target mdversion is unspecified, set it to the latest */
-      mdversion = MD_MODULESTREAM_VERSION_LATEST;
+      /* TODO: reset to MD_MODULESTREAM_VERSION_LATEST */
+      mdversion = MD_MODULESTREAM_VERSION_TWO;
     }
 
   if (mdversion < current_mdversion)
@@ -1179,7 +1202,8 @@ modulemd_module_stream_class_init (ModulemdModuleStreamClass *klass)
     "Metadata Version",
     "The metadata version of this ModuleStream object. Read-only.",
     0,
-    MD_MODULESTREAM_VERSION_LATEST,
+    /* TODO: reset to MD_MODULESTREAM_VERSION_LATEST */
+    MD_MODULESTREAM_VERSION_TWO,
     0,
     G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 

@@ -21,7 +21,6 @@
 #include "modulemd-module-stream.h"
 #include "modulemd-profile.h"
 #include "modulemd-rpm-map-entry.h"
-#include "modulemd-service-level.h"
 #include "modulemd-obsoletes.h"
 #include <glib-object.h>
 
@@ -761,61 +760,6 @@ modulemd_module_stream_v3_clear_rpm_filters (ModulemdModuleStreamV3 *self);
 GStrv
 modulemd_module_stream_v3_get_rpm_filters_as_strv (
   ModulemdModuleStreamV3 *self);
-
-
-/**
- * modulemd_module_stream_v3_add_servicelevel:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- * @servicelevel: (in) (transfer none): A #ModulemdServiceLevel for this module stream.
- *
- * Adds a servicelevel definition to this module stream.
- *
- * Since: 2.10
- */
-void
-modulemd_module_stream_v3_add_servicelevel (
-  ModulemdModuleStreamV3 *self, ModulemdServiceLevel *servicelevel);
-
-
-/**
- * modulemd_module_stream_v3_clear_servicelevels:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- *
- * Remove all servicelevels from this module stream.
- *
- * Since: 2.10
- */
-void
-modulemd_module_stream_v3_clear_servicelevels (ModulemdModuleStreamV3 *self);
-
-
-/**
- * modulemd_module_stream_v3_get_servicelevel_names_as_strv: (rename-to modulemd_module_stream_v3_get_servicelevel_names)
- * @self: (in): This #ModulemdModuleStreamV3 object.
- *
- * Returns: (transfer full): An ordered #GStrv list of servicelevel names
- * associated with this module stream.
- *
- * Since: 2.10
- */
-GStrv
-modulemd_module_stream_v3_get_servicelevel_names_as_strv (
-  ModulemdModuleStreamV3 *self);
-
-
-/**
- * modulemd_module_stream_v3_get_servicelevel:
- * @self: (in): This #ModulemdModuleStreamV3 object.
- * @servicelevel_name: (in): The name of a servicelevel to retrieve.
- *
- * Returns: (transfer none): The requested servicelevel definition if present in the
- * module stream. NULL otherwise.
- *
- * Since: 2.10
- */
-ModulemdServiceLevel *
-modulemd_module_stream_v3_get_servicelevel (ModulemdModuleStreamV3 *self,
-                                            const gchar *servicelevel_name);
 
 
 /**

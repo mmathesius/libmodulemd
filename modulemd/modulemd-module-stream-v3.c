@@ -20,7 +20,6 @@
 #include "modulemd-module-stream.h"
 #include "modulemd-profile.h"
 #include "modulemd-rpm-map-entry.h"
-#include "modulemd-service-level.h"
 #include "modulemd-translation-entry.h"
 #include "private/modulemd-buildopts-private.h"
 #include "private/modulemd-component-module-private.h"
@@ -31,7 +30,6 @@
 #include "private/modulemd-module-stream-v3-private.h"
 #include "private/modulemd-profile-private.h"
 #include "private/modulemd-rpm-map-entry-private.h"
-#include "private/modulemd-service-level-private.h"
 #include "private/modulemd-subdocument-info-private.h"
 #include "private/modulemd-util.h"
 #include "private/modulemd-yaml.h"
@@ -96,8 +94,6 @@ modulemd_module_stream_v3_finalize (GObject *object)
   g_clear_pointer (&self->rpm_artifact_map, g_hash_table_unref);
 
   g_clear_pointer (&self->rpm_filters, g_hash_table_unref);
-
-  g_clear_pointer (&self->servicelevels, g_hash_table_unref);
 
   g_clear_pointer (&self->dependencies, g_ptr_array_unref);
 
@@ -205,13 +201,6 @@ modulemd_module_stream_v3_equals (ModulemdModuleStream *self_1,
 
   if (!modulemd_hash_table_sets_are_equal (v3_self_1->rpm_filters,
                                            v3_self_2->rpm_filters))
-    {
-      return FALSE;
-    }
-
-  if (!modulemd_hash_table_equals (v3_self_1->servicelevels,
-                                   v3_self_2->servicelevels,
-                                   modulemd_service_level_equals_wrapper))
     {
       return FALSE;
     }
@@ -1049,53 +1038,6 @@ modulemd_module_stream_v3_get_rpm_filters_as_strv (
 
 
 void
-modulemd_module_stream_v3_add_servicelevel (ModulemdModuleStreamV3 *self,
-                                            ModulemdServiceLevel *servicelevel)
-{
-  if (!servicelevel)
-    {
-      return;
-    }
-  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
-  g_return_if_fail (MODULEMD_IS_SERVICE_LEVEL (servicelevel));
-
-  g_hash_table_replace (
-    self->servicelevels,
-    g_strdup (modulemd_service_level_get_name (servicelevel)),
-    modulemd_service_level_copy (servicelevel));
-}
-
-
-void
-modulemd_module_stream_v3_clear_servicelevels (ModulemdModuleStreamV3 *self)
-{
-  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
-
-  g_hash_table_remove_all (self->servicelevels);
-}
-
-
-GStrv
-modulemd_module_stream_v3_get_servicelevel_names_as_strv (
-  ModulemdModuleStreamV3 *self)
-{
-  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
-
-  return modulemd_ordered_str_keys_as_strv (self->servicelevels);
-}
-
-
-ModulemdServiceLevel *
-modulemd_module_stream_v3_get_servicelevel (ModulemdModuleStreamV3 *self,
-                                            const gchar *servicelevel_name)
-{
-  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
-
-  return g_hash_table_lookup (self->servicelevels, servicelevel_name);
-}
-
-
-void
 modulemd_module_stream_v3_add_dependencies (ModulemdModuleStreamV3 *self,
                                             ModulemdDependencies *deps)
 {
@@ -1197,11 +1139,44 @@ modulemd_module_stream_v3_includes_nevra (ModulemdModuleStreamV3 *self,
 
 
 static gboolean
+modulemd_module_stream_v3_validate_context (const gchar *context, GError **error)
+{
+  /* must be string of up to ten [a-zA-Z0-9] */
+
+  if (strlen(context) > 10)
+  {
+    g_set_error (error,
+                 MODULEMD_ERROR,
+                 MMD_ERROR_VALIDATE,
+                 "Context '%s' must no more than 10 characters in length.",
+		 context);
+    return FALSE;
+  }
+
+  for (const gchar *i = context; *i != '\0'; i++)
+    {
+      if (!g_ascii_isalnum(*i))
+        {
+          g_set_error (error,
+                       MODULEMD_ERROR,
+                       MMD_ERROR_VALIDATE,
+                       "Context '%s' may contain only alphanumeric characters.",
+		       context);
+	        return FALSE;
+        }
+    }
+
+  return TRUE;
+}
+
+
+static gboolean
 modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
 {
   GHashTableIter iter;
   gpointer key;
   gpointer value;
+  const gchar *context = NULL;
   gchar *nevra = NULL;
   ModulemdModuleStreamV3 *v3_self = NULL;
   ModulemdDependencies *deps = NULL;
@@ -1216,6 +1191,19 @@ modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
     {
       return FALSE;
     }
+
+  /* Validate context if present */
+  context = modulemd_module_stream_get_context (MODULEMD_MODULE_STREAM (self));
+  if (context)
+    {
+      if (!modulemd_module_stream_v3_validate_context (context,
+                                                       &nested_error))
+        {
+          g_propagate_error (error, g_steal_pointer (&nested_error));
+          return FALSE;
+        }
+    }
+
 
   /* Make sure that mandatory fields are present */
   if (!modulemd_module_stream_v3_get_summary (v3_self, "C"))
@@ -1233,15 +1221,6 @@ modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
                    MODULEMD_YAML_ERROR,
                    MMD_YAML_ERROR_MISSING_REQUIRED,
                    "Description is missing");
-      return FALSE;
-    }
-
-  if (!g_hash_table_size (v3_self->module_licenses))
-    {
-      g_set_error (error,
-                   MODULEMD_YAML_ERROR,
-                   MMD_YAML_ERROR_MISSING_REQUIRED,
-                   "Module license is missing");
       return FALSE;
     }
 
@@ -1446,8 +1425,6 @@ modulemd_module_stream_v3_copy (ModulemdModuleStream *self,
     copy, v3_self, module_components, modulemd_module_stream_v3_add_component);
   COPY_HASHTABLE_BY_VALUE_ADDER (
     copy, v3_self, profiles, modulemd_module_stream_v3_add_profile);
-  COPY_HASHTABLE_BY_VALUE_ADDER (
-    copy, v3_self, servicelevels, modulemd_module_stream_v3_add_servicelevel);
 
   STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, dependencies);
 
@@ -1612,9 +1589,6 @@ modulemd_module_stream_v3_init (ModulemdModuleStreamV3 *self)
   self->rpm_filters =
     g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
-  self->servicelevels =
-    g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
-
   /* The common case is for a single entry, so we'll optimize for that when
    * preallocating
    */
@@ -1626,15 +1600,7 @@ static gboolean
 modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
                                           ModulemdModuleStreamV3 *modulestream,
                                           gboolean strict,
-                                          gboolean only_packager,
                                           GError **error);
-
-static gboolean
-modulemd_module_stream_v3_parse_servicelevels (
-  yaml_parser_t *parser,
-  ModulemdModuleStreamV3 *modulestream,
-  gboolean strict,
-  GError **error);
 
 static gboolean
 modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
@@ -1659,7 +1625,6 @@ modulemd_module_stream_v3_parse_components (
   yaml_parser_t *parser,
   ModulemdModuleStreamV3 *modulestream,
   gboolean strict,
-  gboolean only_packager,
   GError **error);
 
 static gboolean
@@ -1676,7 +1641,6 @@ modulemd_module_stream_v3_parse_raw (yaml_parser_t *parser, GError **error);
 ModulemdModuleStreamV3 *
 modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
                                       gboolean strict,
-                                      gboolean only_packager,
                                       GError **error)
 {
   MODULEMD_INIT_TRACE ();
@@ -1721,8 +1685,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
           /* Mapping Keys */
 
           /* Module Name */
-          if (g_str_equal ((const gchar *)event.data.scalar.value, "name") &&
-              !only_packager)
+          if (g_str_equal ((const gchar *)event.data.scalar.value, "name"))
             {
               MMD_SET_PARSED_YAML_STRING (
                 &parser,
@@ -1733,8 +1696,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
 
           /* Module Stream Name */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "stream") &&
-                   !only_packager)
+                                "stream"))
             {
               MMD_SET_PARSED_YAML_STRING (
                 &parser,
@@ -1745,8 +1707,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
 
           /* Module Version */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "version") &&
-                   !only_packager)
+                                "version"))
             {
               version = modulemd_yaml_parse_uint64 (&parser, &nested_error);
               if (nested_error)
@@ -1761,8 +1722,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
 
           /* Module Context */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "context") &&
-                   !only_packager)
+                                "context"))
             {
               MMD_SET_PARSED_YAML_STRING (
                 &parser,
@@ -1773,8 +1733,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
 
           /* Module Artifact Architecture */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "arch") &&
-                   !only_packager)
+                                "arch"))
             {
               MMD_SET_PARSED_YAML_STRING (&parser,
                                           error,
@@ -1804,19 +1763,6 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
                 modulestream);
             }
 
-          /* Service Levels */
-          else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "servicelevels") &&
-                   !only_packager)
-            {
-              if (!modulemd_module_stream_v3_parse_servicelevels (
-                    &parser, modulestream, strict, &nested_error))
-                {
-                  g_propagate_error (error, g_steal_pointer (&nested_error));
-                  return NULL;
-                }
-            }
-
           /* Licences */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
                                 "license"))
@@ -1824,7 +1770,6 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
               if (!modulemd_module_stream_v3_parse_licenses (&parser,
                                                              modulestream,
                                                              strict,
-                                                             only_packager,
                                                              &nested_error))
                 {
                   g_propagate_error (error, g_steal_pointer (&nested_error));
@@ -1834,8 +1779,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
 
           /* Extensible Metadata */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "xmd") &&
-                   !only_packager)
+                                "xmd"))
             {
               xmd =
                 modulemd_module_stream_v3_parse_raw (&parser, &nested_error);
@@ -1906,8 +1850,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
 
           /* Build Options */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "buildopts") &&
-                   !only_packager)
+                                "buildopts"))
             {
               buildopts =
                 modulemd_buildopts_parse_yaml (&parser, strict, &nested_error);
@@ -1929,7 +1872,6 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
               if (!modulemd_module_stream_v3_parse_components (&parser,
                                                                modulestream,
                                                                strict,
-                                                               only_packager,
                                                                &nested_error))
                 {
                   g_propagate_error (error, g_steal_pointer (&nested_error));
@@ -1939,8 +1881,7 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
 
           /* Artifacts */
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "artifacts") &&
-                   !only_packager)
+                                "artifacts"))
             {
               if (!modulemd_module_stream_v3_parse_artifacts (
                     &parser, modulestream, strict, &nested_error))
@@ -1981,7 +1922,6 @@ static gboolean
 modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
                                           ModulemdModuleStreamV3 *modulestream,
                                           gboolean strict,
-                                          gboolean only_packager,
                                           GError **error)
 {
   MODULEMD_INIT_TRACE ();
@@ -2030,18 +1970,12 @@ modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
           if (g_str_equal ((const gchar *)event.data.scalar.value, "module"))
             {
               set = modulemd_yaml_parse_string_set (parser, &nested_error);
-              if (!set)
-                {
-                  g_propagate_error (error, g_steal_pointer (&nested_error));
-                  return FALSE;
-                }
               modulemd_module_stream_v3_replace_module_licenses (modulestream,
                                                                  set);
               g_clear_pointer (&set, g_hash_table_unref);
             }
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
-                                "content") &&
-                   !only_packager)
+                                "content"))
             {
               set = modulemd_yaml_parse_string_set (parser, &nested_error);
               modulemd_module_stream_v3_replace_content_licenses (modulestream,
@@ -2073,86 +2007,6 @@ modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
   return TRUE;
 }
 
-
-static gboolean
-modulemd_module_stream_v3_parse_servicelevels (
-  yaml_parser_t *parser,
-  ModulemdModuleStreamV3 *modulestream,
-  gboolean strict,
-  GError **error)
-{
-  MODULEMD_INIT_TRACE ();
-  MMD_INIT_YAML_EVENT (event);
-  gboolean done = FALSE;
-  gboolean in_map = FALSE;
-  const gchar *name = NULL;
-  g_autoptr (ModulemdServiceLevel) sl = NULL;
-  g_autoptr (GError) nested_error = NULL;
-
-  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-
-  /* Process through the mapping */
-  while (!done)
-    {
-      YAML_PARSER_PARSE_WITH_EXIT_BOOL (parser, &event, error);
-
-      switch (event.type)
-        {
-        case YAML_MAPPING_START_EVENT:
-          if (in_map)
-            {
-              MMD_YAML_ERROR_EVENT_EXIT_BOOL (
-                error,
-                event,
-                "Unexpected extra MAPPING_START event in servicelevels");
-            }
-          in_map = TRUE;
-          break;
-
-        case YAML_MAPPING_END_EVENT:
-          if (!in_map)
-            {
-              MMD_YAML_ERROR_EVENT_EXIT_BOOL (
-                error, event, "Unexpected MAPPING_END event in servicelevels");
-            }
-          done = TRUE;
-          break;
-
-        case YAML_SCALAR_EVENT:
-          if (!in_map)
-            {
-              MMD_YAML_ERROR_EVENT_EXIT_BOOL (
-                error, event, "Received scalar outside of mapping");
-            }
-
-          name = (const gchar *)event.data.scalar.value;
-
-          sl = modulemd_service_level_parse_yaml (
-            parser, name, strict, &nested_error);
-          if (!sl)
-            {
-              g_propagate_error (error, g_steal_pointer (&nested_error));
-              return FALSE;
-            }
-
-          modulemd_module_stream_v3_add_servicelevel (modulestream, sl);
-          g_clear_object (&sl);
-
-          break;
-
-        default:
-          MMD_YAML_ERROR_EVENT_EXIT_BOOL (
-            error,
-            event,
-            "Unexpected YAML event in servicelevels: %s",
-            mmd_yaml_get_event_name (event.type));
-          break;
-        }
-      yaml_event_delete (&event);
-    }
-
-  return TRUE;
-}
 
 static gboolean
 modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
@@ -2389,7 +2243,6 @@ modulemd_module_stream_v3_parse_rpm_components (
   yaml_parser_t *parser,
   ModulemdModuleStreamV3 *modulestream,
   gboolean strict,
-  gboolean only_packager,
   GError **error);
 static gboolean
 modulemd_module_stream_v3_parse_module_components (
@@ -2404,7 +2257,6 @@ modulemd_module_stream_v3_parse_components (
   yaml_parser_t *parser,
   ModulemdModuleStreamV3 *modulestream,
   gboolean strict,
-  gboolean only_packager,
   GError **error)
 {
   MODULEMD_INIT_TRACE ();
@@ -2441,7 +2293,6 @@ modulemd_module_stream_v3_parse_components (
                     parser,
                     modulestream,
                     strict,
-                    only_packager,
                     &nested_error))
                 {
                   g_propagate_error (error, g_steal_pointer (&nested_error));
@@ -2491,7 +2342,6 @@ modulemd_module_stream_v3_parse_rpm_components (
   yaml_parser_t *parser,
   ModulemdModuleStreamV3 *modulestream,
   gboolean strict,
-  gboolean only_packager,
   GError **error)
 {
   MODULEMD_INIT_TRACE ();
@@ -2526,7 +2376,7 @@ modulemd_module_stream_v3_parse_rpm_components (
             parser,
             (const gchar *)event.data.scalar.value,
             strict,
-            only_packager,
+            FALSE,
             &nested_error);
           if (!component)
             {
@@ -2908,27 +2758,16 @@ modulemd_module_stream_v3_emit_yaml (ModulemdModuleStreamV3 *self,
                        self->description,
                        YAML_FOLDED_SCALAR_STYLE);
 
-  EMIT_HASHTABLE_VALUES_IF_NON_EMPTY (emitter,
-                                      error,
-                                      "servicelevels",
-                                      self->servicelevels,
-                                      modulemd_service_level_emit_yaml);
-
-  if (!NON_EMPTY_TABLE (self->module_licenses))
+  if (self->module_licenses || self->content_licenses)
     {
-      g_set_error (error,
-                   MODULEMD_YAML_ERROR,
-                   MMD_YAML_ERROR_EMIT,
-                   "Module licenses is not allowed to be empty");
-      return FALSE;
+      EMIT_SCALAR (emitter, error, "license");
+      EMIT_MAPPING_START (emitter, error);
+      EMIT_STRING_SET_IF_NON_EMPTY (
+        emitter, error, "module", self->module_licenses);
+      EMIT_STRING_SET_IF_NON_EMPTY (
+        emitter, error, "content", self->content_licenses);
+      EMIT_MAPPING_END (emitter, error);
     }
-
-  EMIT_SCALAR (emitter, error, "license");
-  EMIT_MAPPING_START (emitter, error);
-  EMIT_STRING_SET (emitter, error, "module", self->module_licenses);
-  EMIT_STRING_SET_IF_NON_EMPTY (
-    emitter, error, "content", self->content_licenses);
-  EMIT_MAPPING_END (emitter, error);
 
   if (self->xmd != NULL)
     {
