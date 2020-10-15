@@ -46,6 +46,7 @@ enum
   PROP_COMMUNITY,
   PROP_DOCUMENTATION,
   PROP_TRACKER,
+  PROP_PLATFORM,
   N_PROPS
 };
 
@@ -76,8 +77,10 @@ modulemd_module_stream_v3_finalize (GObject *object)
   g_clear_pointer (&self->documentation, g_free);
   g_clear_pointer (&self->summary, g_free);
   g_clear_pointer (&self->tracker, g_free);
+  g_clear_pointer (&self->platform, g_free);
 
   /* Internal Data Structures */
+  /* TODO: initialize, copy, free buildtime_deps and runtime_deps */
   g_clear_pointer (&self->module_components, g_hash_table_unref);
   g_clear_pointer (&self->rpm_components, g_hash_table_unref);
 
@@ -142,6 +145,11 @@ modulemd_module_stream_v3_equals (ModulemdModuleStream *self_1,
     }
 
   if (g_strcmp0 (v3_self_1->tracker, v3_self_2->tracker) != 0)
+    {
+      return FALSE;
+    }
+
+  if (g_strcmp0 (v3_self_1->platform, v3_self_2->platform) != 0)
     {
       return FALSE;
     }
@@ -404,6 +412,28 @@ modulemd_module_stream_v3_get_tracker (ModulemdModuleStreamV3 *self)
   g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
 
   return self->tracker;
+}
+
+
+void
+modulemd_module_stream_v3_set_platform (ModulemdModuleStreamV3 *self,
+                                        const gchar *platform)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+
+  g_clear_pointer (&self->platform, g_free);
+  self->platform = g_strdup (platform);
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_PLATFORM]);
+}
+
+
+const gchar *
+modulemd_module_stream_v3_get_platform (ModulemdModuleStreamV3 *self)
+{
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
+
+  return self->platform;
 }
 
 
@@ -1018,6 +1048,152 @@ modulemd_module_stream_v3_get_rpm_filters_as_strv (
 
 
 void
+modulemd_module_stream_v3_add_buildtime_requirement (
+  ModulemdModuleStreamV3 *self,
+  const gchar *module_name,
+  const gchar *module_stream)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+  g_return_if_fail (module_name && module_stream);
+
+  g_hash_table_replace (
+    self->buildtime_deps, g_strdup (module_name), g_strdup (module_stream));
+}
+
+
+static void
+modulemd_module_stream_v3_replace_buildtime_deps (ModulemdModuleStreamV3 *self,
+                                                  GHashTable *deps)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+
+  if (deps)
+    {
+      g_hash_table_unref (self->buildtime_deps);
+      self->buildtime_deps = modulemd_hash_table_deep_str_copy (deps);
+    }
+  else
+    {
+      g_hash_table_remove_all (self->buildtime_deps);
+    }
+}
+
+
+void
+modulemd_module_stream_v3_add_runtime_requirement (
+  ModulemdModuleStreamV3 *self,
+  const gchar *module_name,
+  const gchar *module_stream)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+  g_return_if_fail (module_name && module_stream);
+
+  g_hash_table_replace (
+    self->runtime_deps, g_strdup (module_name), g_strdup (module_stream));
+}
+
+
+static void
+modulemd_module_stream_v3_replace_runtime_deps (ModulemdModuleStreamV3 *self,
+                                                GHashTable *deps)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+
+  if (deps)
+    {
+      g_hash_table_unref (self->runtime_deps);
+      self->runtime_deps = modulemd_hash_table_deep_str_copy (deps);
+    }
+  else
+    {
+      g_hash_table_remove_all (self->runtime_deps);
+    }
+}
+
+
+void
+modulemd_module_stream_v3_remove_buildtime_requirement (
+  ModulemdModuleStreamV3 *self, const gchar *module_name)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+  g_return_if_fail (module_name);
+
+  g_hash_table_remove (self->buildtime_deps, module_name);
+}
+
+
+void
+modulemd_module_stream_v3_remove_runtime_requirement (
+  ModulemdModuleStreamV3 *self, const gchar *module_name)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+  g_return_if_fail (module_name);
+
+  g_hash_table_remove (self->runtime_deps, module_name);
+}
+
+
+void
+modulemd_module_stream_v3_clear_buildtime_requirements (
+  ModulemdModuleStreamV3 *self)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+
+  g_hash_table_remove_all (self->buildtime_deps);
+}
+
+
+void
+modulemd_module_stream_v3_clear_runtime_requirements (
+  ModulemdModuleStreamV3 *self)
+{
+  g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
+
+  g_hash_table_remove_all (self->runtime_deps);
+}
+
+
+GStrv
+modulemd_module_stream_v3_get_buildtime_modules_as_strv (
+  ModulemdModuleStreamV3 *self)
+{
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
+
+  return modulemd_ordered_str_keys_as_strv (self->buildtime_deps);
+}
+
+
+GStrv
+modulemd_module_stream_v3_get_runtime_modules_as_strv (
+  ModulemdModuleStreamV3 *self)
+{
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
+
+  return modulemd_ordered_str_keys_as_strv (self->runtime_deps);
+}
+
+
+const gchar *
+modulemd_module_stream_v3_get_buildtime_requirement_stream (
+  ModulemdModuleStreamV3 *self, const gchar *module_name)
+{
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
+
+  return g_hash_table_lookup (self->buildtime_deps, module_name);
+}
+
+
+const gchar *
+modulemd_module_stream_v3_get_runtime_requirement_stream (
+  ModulemdModuleStreamV3 *self, const gchar *module_name)
+{
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
+
+  return g_hash_table_lookup (self->runtime_deps, module_name);
+}
+
+
+void
 modulemd_module_stream_v3_set_xmd (ModulemdModuleStreamV3 *self, GVariant *xmd)
 {
   g_return_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self));
@@ -1084,6 +1260,7 @@ modulemd_module_stream_v3_validate_context (const gchar *context, GError **error
 }
 
 
+/* TODO: validate dependencies */
 static gboolean
 modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
 {
@@ -1119,6 +1296,15 @@ modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
 
 
   /* Make sure that mandatory fields are present */
+  if (!modulemd_module_stream_v3_get_platform (v3_self))
+    {
+      g_set_error (error,
+                   MODULEMD_YAML_ERROR,
+                   MMD_YAML_ERROR_MISSING_REQUIRED,
+                   "Platform is missing");
+      return FALSE;
+    }
+
   if (!modulemd_module_stream_v3_get_summary (v3_self, "C"))
     {
       g_set_error (error,
@@ -1217,6 +1403,10 @@ modulemd_module_stream_v3_get_property (GObject *object,
       g_value_set_string (value, modulemd_module_stream_v3_get_tracker (self));
       break;
 
+    case PROP_PLATFORM:
+      g_value_set_string (value, modulemd_module_stream_v3_get_platform (self));
+      break;
+
     default: G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
     }
 }
@@ -1251,6 +1441,10 @@ modulemd_module_stream_v3_set_property (GObject *object,
 
     case PROP_TRACKER:
       modulemd_module_stream_v3_set_tracker (self, g_value_get_string (value));
+      break;
+
+    case PROP_PLATFORM:
+      modulemd_module_stream_v3_set_platform (self, g_value_get_string (value));
       break;
 
     default: G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1309,6 +1503,7 @@ modulemd_module_stream_v3_copy (ModulemdModuleStream *self,
   STREAM_COPY_IF_SET (v3, copy, v3_self, documentation);
   STREAM_COPY_IF_SET_WITH_LOCALE (v3, copy, v3_self, summary);
   STREAM_COPY_IF_SET (v3, copy, v3_self, tracker);
+  STREAM_COPY_IF_SET (v3, copy, v3_self, platform);
 
   /* Internal Data Structures: With replace function */
   STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, content_licenses);
@@ -1388,6 +1583,13 @@ modulemd_module_stream_v3_class_init (ModulemdModuleStreamV3Class *klass)
     NULL,
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 
+  properties[PROP_PLATFORM] = g_param_spec_string (
+    "platform",
+    "Module Platform",
+    "The buildroot and runtime platform for this module",
+    NULL,
+    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+
   g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
@@ -1430,6 +1632,11 @@ modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
                                           ModulemdModuleStreamV3 *modulestream,
                                           gboolean strict,
                                           GError **error);
+static gboolean
+modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
+                                      ModulemdModuleStreamV3 *modulestream,
+                                      gboolean strict,
+                                      GError **error);
 
 static gboolean
 modulemd_module_stream_v3_parse_refs (yaml_parser_t *parser,
@@ -1613,6 +1820,18 @@ modulemd_module_stream_v3_parse_yaml (ModulemdSubdocumentInfo *subdoc,
                 }
               modulemd_module_stream_v3_set_xmd (modulestream, xmd);
               g_clear_pointer (&xmd, g_variant_unref);
+            }
+
+          /* Dependencies */
+          else if (g_str_equal ((const gchar *)event.data.scalar.value,
+                                "dependencies"))
+            {
+              if (!modulemd_module_stream_v3_parse_deps (
+                    &parser, modulestream, strict, &nested_error))
+                {
+                  g_propagate_error (error, g_steal_pointer (&nested_error));
+                  return NULL;
+                }
             }
 
           /* References */
@@ -1809,6 +2028,111 @@ modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
             error,
             event,
             "Unexpected YAML event in licenses: %s",
+            mmd_yaml_get_event_name (event.type));
+          break;
+        }
+      yaml_event_delete (&event);
+    }
+
+  return TRUE;
+}
+
+
+static gboolean
+modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
+                                      ModulemdModuleStreamV3 *modulestream,
+                                      gboolean strict,
+                                      GError **error)
+{
+  MODULEMD_INIT_TRACE ();
+  MMD_INIT_YAML_EVENT (event);
+  gboolean done = FALSE;
+  g_autofree gchar *scalar = NULL;
+  g_autoptr (GError) nested_error = NULL;
+  g_autoptr (GHashTable) deptable = NULL;
+
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  /* Process through the sequence */
+  /* We *must* get a MAPPING_START here */
+  YAML_PARSER_PARSE_WITH_EXIT_BOOL (parser, &event, error);
+  if (event.type != YAML_MAPPING_START_EVENT)
+    {
+      MMD_YAML_ERROR_EVENT_EXIT_BOOL (
+        error,
+        event,
+        "Got %s instead of SEQUENCE_START in dependencies.",
+        mmd_yaml_get_event_name (event.type));
+    }
+
+  while (!done)
+    {
+      YAML_PARSER_PARSE_WITH_EXIT_BOOL (parser, &event, error);
+
+      switch (event.type)
+        {
+        case YAML_MAPPING_END_EVENT: done = TRUE; break;
+
+        case YAML_SCALAR_EVENT:
+          if (g_str_equal ((const gchar *)event.data.scalar.value,
+                           "platform"))
+            {
+              scalar = modulemd_yaml_parse_string (parser, &nested_error);
+              if (!scalar)
+                {
+                  g_propagate_error (error, g_steal_pointer (&nested_error));
+                  return FALSE;
+                }
+
+              modulemd_module_stream_v3_set_platform (modulestream, scalar);
+              g_clear_pointer (&scalar, g_free);
+            }
+          else if (g_str_equal ((const gchar *)event.data.scalar.value,
+                           "buildrequires"))
+            {
+              deptable =
+                modulemd_yaml_parse_string_string_map (parser, &nested_error);
+              if (!deptable)
+                {
+                  g_propagate_error (error, g_steal_pointer (&nested_error));
+                  return FALSE;
+                }
+              modulemd_module_stream_v3_replace_buildtime_deps (modulestream,
+                                                                deptable);
+              g_clear_pointer (&deptable, g_hash_table_unref);
+            }
+
+          else if (g_str_equal ((const gchar *)event.data.scalar.value,
+                                "requires"))
+            {
+              deptable =
+                modulemd_yaml_parse_string_string_map (parser, &nested_error);
+              if (!deptable)
+                {
+                  g_propagate_error (error, g_steal_pointer (&nested_error));
+                  return FALSE;
+                }
+              modulemd_module_stream_v3_replace_runtime_deps (modulestream,
+                                                              deptable);
+              g_clear_pointer (&deptable, g_hash_table_unref);
+            }
+
+          else
+            {
+              SKIP_UNKNOWN (parser,
+                            FALSE,
+                            "Unexpected key in dependencies: %s",
+                            (const gchar *)event.data.scalar.value);
+              break;
+            }
+
+          break;
+
+        default:
+          MMD_YAML_ERROR_EVENT_EXIT_BOOL (
+            error,
+            event,
+            "Unexpected YAML event in dependencies: %s",
             mmd_yaml_get_event_name (event.type));
           break;
         }
@@ -2526,6 +2850,16 @@ modulemd_module_stream_v3_emit_yaml (ModulemdModuleStreamV3 *self,
           return FALSE;
         }
     }
+
+  EMIT_SCALAR (emitter, error, "dependencies");
+  EMIT_MAPPING_START (emitter, error);
+  EMIT_KEY_VALUE (emitter, error, "platform", self->platform);
+  EMIT_HASHTABLE_KEY_VALUES_IF_NON_EMPTY (
+    emitter, error, "buildrequires", self->buildtime_deps);
+  EMIT_HASHTABLE_KEY_VALUES_IF_NON_EMPTY (
+    emitter, error, "requires", self->runtime_deps);
+  EMIT_MAPPING_END (emitter, error);
+
 
   if (self->community || self->documentation || self->tracker)
     {

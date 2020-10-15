@@ -258,6 +258,32 @@ modulemd_module_stream_v3_get_tracker (ModulemdModuleStreamV3 *self);
 
 
 /**
+ * modulemd_module_stream_v3_set_platform:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ * @platform: (in): The buildroot and runtime platform for this module.
+ *
+ * Set the The buildroot and runtime platform for this module.
+ *
+ * Since: 2.10
+ */
+void
+modulemd_module_stream_v3_set_platform (ModulemdModuleStreamV3 *self,
+                                        const gchar *platform);
+
+
+/**
+ * modulemd_module_stream_v3_get_platform:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ *
+ * Returns: (transfer none): The buildroot and runtime platform for this module.
+ *
+ * Since: 2.10
+ */
+const gchar *
+modulemd_module_stream_v3_get_platform (ModulemdModuleStreamV3 *self);
+
+
+/**
  * modulemd_module_stream_v3_get_obsoletes_resolved:
  * @self: (in): This #ModulemdModuleStreamV3 object.
  *
@@ -520,7 +546,7 @@ modulemd_module_stream_v3_add_profile (ModulemdModuleStreamV3 *self,
 
 /**
  * modulemd_module_stream_v3_clear_profiles:
- * @self: (in): This #ModulemdModuleStreamV1 object.
+ * @self: (in): This #ModulemdModuleStreamV3 object.
  *
  * Remove all profiles from this module stream.
  *
@@ -759,6 +785,151 @@ modulemd_module_stream_v3_clear_rpm_filters (ModulemdModuleStreamV3 *self);
 GStrv
 modulemd_module_stream_v3_get_rpm_filters_as_strv (
   ModulemdModuleStreamV3 *self);
+
+
+/**
+ * modulemd_module_stream_v3_add_buildtime_requirement:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ * @module_name: (in): The name of the module to depend on.
+ * @module_stream: (in): The name of the module stream to depend on.
+ *
+ * Add a build-time dependency for this module.
+ *
+ * Since: 2.10
+ */
+void
+modulemd_module_stream_v3_add_buildtime_requirement (
+  ModulemdModuleStreamV3 *self,
+  const gchar *module_name,
+  const gchar *module_stream);
+
+/**
+ * modulemd_module_stream_v3_add_runtime_requirement:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ * @module_name: (in): The name of the module to depend on.
+ * @module_stream: (in): The name of the module stream to depend on.
+ *
+ * Add a runtime dependency for this module.
+ *
+ * Since: 2.10
+ */
+void
+modulemd_module_stream_v3_add_runtime_requirement (
+  ModulemdModuleStreamV3 *self,
+  const gchar *module_name,
+  const gchar *module_stream);
+
+
+/**
+ * modulemd_module_stream_v3_remove_buildtime_requirement:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ * @module_name: (in): The name of the module to be removed.
+ *
+ * Remove a build-time dependency for this module.
+ *
+ * Since: 2.10
+ */
+void
+modulemd_module_stream_v3_remove_buildtime_requirement (
+  ModulemdModuleStreamV3 *self, const gchar *module_name);
+
+
+/**
+ * modulemd_module_stream_v3_remove_runtime_requirement:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ * @module_name: (in): The name of the module to be removed.
+ *
+ * Remove a runtime dependency for this module.
+ *
+ * Since: 2.10
+ */
+void
+modulemd_module_stream_v3_remove_runtime_requirement (
+  ModulemdModuleStreamV3 *self, const gchar *module_name);
+
+
+/**
+ * modulemd_module_stream_v3_clear_buildtime_requirements
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ *
+ * Remove all buildtime dependencies for this module.
+ *
+ * Since: 2.10
+ */
+void
+modulemd_module_stream_v3_clear_buildtime_requirements (
+  ModulemdModuleStreamV3 *self);
+
+
+/**
+ * modulemd_module_stream_v3_clear_runtime_requirements
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ *
+ * Remove all runtime dependencies for this module.
+ *
+ * Since: 2.10
+ */
+void
+modulemd_module_stream_v3_clear_runtime_requirements (
+  ModulemdModuleStreamV3 *self);
+
+
+/**
+ * modulemd_module_stream_v3_get_buildtime_modules_as_strv: (rename-to modulemd_module_stream_v3_get_buildtime_modules)
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ *
+ * Returns: (transfer full): An ordered #GStrv list of module names that this
+ * module depends on at build-time.
+ *
+ * Since: 2.10
+ */
+GStrv
+modulemd_module_stream_v3_get_buildtime_modules_as_strv (
+  ModulemdModuleStreamV3 *self);
+
+
+/**
+ * modulemd_module_stream_v3_get_runtime_modules_as_strv: (rename-to modulemd_module_stream_v3_get_runtime_modules)
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ *
+ * Returns: (transfer full): An ordered #GStrv list of module names that this
+ * module depends on at runtime.
+ *
+ * Since: 2.10
+ */
+GStrv
+modulemd_module_stream_v3_get_runtime_modules_as_strv (
+  ModulemdModuleStreamV3 *self);
+
+
+/**
+ * modulemd_module_stream_v3_get_buildtime_requirement_stream:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ * @module_name: (in): The name of the module this module depends on.
+ *
+ * Returns: (transfer none): The name of the stream matching this module name
+ * in the build-time dependencies.
+ *
+ * Since: 2.10
+ */
+const gchar *
+modulemd_module_stream_v3_get_buildtime_requirement_stream (
+  ModulemdModuleStreamV3 *self, const gchar *module_name);
+
+
+/**
+ * modulemd_module_stream_v3_get_runtime_requirement_stream:
+ * @self: (in): This #ModulemdModuleStreamV3 object.
+ * @module_name: (in): The name of the module this module depends on.
+ *
+ * Returns: (transfer none): The name of the stream matching this module name
+ * in the runtime dependencies.
+ *
+ * Since: 2.10
+ */
+const gchar *
+modulemd_module_stream_v3_get_runtime_requirement_stream (
+  ModulemdModuleStreamV3 *self, const gchar *module_name);
 
 
 /**

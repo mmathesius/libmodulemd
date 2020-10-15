@@ -297,11 +297,16 @@ GStrv
 modulemd_module_stream_v3_get_rpm_filters (ModulemdModuleStreamV3 *self);
 
 /**
- * modulemd_module_stream_v3_get_servicelevel_names: (skip)
+ * modulemd_module_stream_v3_get_buildtime_modules: (skip)
  */
 GStrv
-modulemd_module_stream_v3_get_servicelevel_names (
-  ModulemdModuleStreamV3 *self);
+modulemd_module_stream_v3_get_buildtime_modules (ModulemdModuleStreamV3 *self);
+
+/**
+ * modulemd_module_stream_v3_get_runtime_modules: (skip)
+ */
+GStrv
+modulemd_module_stream_v3_get_runtime_modules (ModulemdModuleStreamV3 *self);
 
 /**
  * modulemd_profile_get_rpms: (skip)
