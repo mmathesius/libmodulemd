@@ -80,7 +80,6 @@ modulemd_module_stream_v3_finalize (GObject *object)
   g_clear_pointer (&self->platform, g_free);
 
   /* Internal Data Structures */
-  /* TODO: initialize, copy, free buildtime_deps and runtime_deps */
   g_clear_pointer (&self->module_components, g_hash_table_unref);
   g_clear_pointer (&self->rpm_components, g_hash_table_unref);
 
@@ -96,6 +95,9 @@ modulemd_module_stream_v3_finalize (GObject *object)
   g_clear_pointer (&self->rpm_artifact_map, g_hash_table_unref);
 
   g_clear_pointer (&self->rpm_filters, g_hash_table_unref);
+
+  g_clear_pointer (&self->buildtime_deps, g_hash_table_unref);
+  g_clear_pointer (&self->runtime_deps, g_hash_table_unref);
 
   g_clear_pointer (&self->obsoletes, g_object_unref);
 
@@ -206,6 +208,18 @@ modulemd_module_stream_v3_equals (ModulemdModuleStream *self_1,
 
   if (!modulemd_hash_table_sets_are_equal (v3_self_1->rpm_filters,
                                            v3_self_2->rpm_filters))
+    {
+      return FALSE;
+    }
+
+  if (!modulemd_hash_table_equals (
+        v3_self_1->buildtime_deps, v3_self_2->buildtime_deps, g_str_equal))
+    {
+      return FALSE;
+    }
+
+  if (!modulemd_hash_table_equals (
+        v3_self_1->runtime_deps, v3_self_2->runtime_deps, g_str_equal))
     {
       return FALSE;
     }
@@ -1260,7 +1274,6 @@ modulemd_module_stream_v3_validate_context (const gchar *context, GError **error
 }
 
 
-/* TODO: validate dependencies */
 static gboolean
 modulemd_module_stream_v3_validate (ModulemdModuleStream *self, GError **error)
 {
@@ -1511,6 +1524,8 @@ modulemd_module_stream_v3_copy (ModulemdModuleStream *self,
   STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, rpm_api);
   STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, rpm_artifacts);
   STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, rpm_filters);
+  STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, buildtime_deps);
+  STREAM_REPLACE_HASHTABLE (v3, copy, v3_self, runtime_deps);
 
   /* Internal Data Structures: With add on value */
   COPY_HASHTABLE_BY_VALUE_ADDER (
@@ -1624,6 +1639,11 @@ modulemd_module_stream_v3_init (ModulemdModuleStreamV3 *self)
 
   self->rpm_filters =
     g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
+  self->buildtime_deps =
+    g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  self->runtime_deps =
+    g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 }
 
 
