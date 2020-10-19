@@ -45,7 +45,7 @@ struct _ModulemdModuleStreamV3
   gchar *platform;
 
   /* Internal Data Structures */
-  GHashTable *module_components; /* <string, Modulemd.ComponentModule */
+  GHashTable *module_components; /* <string, Modulemd.ComponentModule> */
   GHashTable *rpm_components; /* <string, Modulemd.ComponentRpm> */
 
   GHashTable *content_licenses; /* string set */

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of libmodulemd
-# Copyright (C) 2018 Red Hat, Inc.
+# Copyright (C) 2018-2020 Red Hat, Inc.
 #
 # Fedora-License-Identifier: MIT
 # SPDX-2.0-License-Identifier: MIT

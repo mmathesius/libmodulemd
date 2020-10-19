@@ -1,6 +1,6 @@
 /*
  * This file is part of libmodulemd
- * Copyright (C) 2018 Red Hat, Inc.
+ * Copyright (C) 2018-2020 Red Hat, Inc.
  *
  * Fedora-License-Identifier: MIT
  * SPDX-2.0-License-Identifier: MIT
@@ -259,12 +259,12 @@ modulemd_module_stream_read_yaml (yaml_parser_t *parser,
     case MD_MODULESTREAM_VERSION_THREE:
       if (doctype == MODULEMD_YAML_DOC_PACKAGER)
         {
-	  g_set_error (error,
-		       MODULEMD_YAML_ERROR,
-		       MMD_YAML_ERROR_PROGRAMMING,
-		       "Incorrect function to parse modulemd-packager v3");
-	  return NULL;
-	}
+          g_set_error (error,
+                       MODULEMD_YAML_ERROR,
+                       MMD_YAML_ERROR_PROGRAMMING,
+                       "Incorrect function to parse modulemd-packager v3");
+          return NULL;
+        }
       stream = MODULEMD_MODULE_STREAM (modulemd_module_stream_v3_parse_yaml (
         subdoc, strict, &nested_error));
       if (!stream)

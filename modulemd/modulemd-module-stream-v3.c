@@ -1253,7 +1253,7 @@ modulemd_module_stream_v3_validate_context (const gchar *context, GError **error
                  MODULEMD_ERROR,
                  MMD_ERROR_VALIDATE,
                  "Context '%s' must no more than 10 characters in length.",
-		 context);
+                 context);
     return FALSE;
   }
 
@@ -1265,8 +1265,8 @@ modulemd_module_stream_v3_validate_context (const gchar *context, GError **error
                        MODULEMD_ERROR,
                        MMD_ERROR_VALIDATE,
                        "Context '%s' may contain only alphanumeric characters.",
-		       context);
-	        return FALSE;
+                       context);
+                return FALSE;
         }
     }
 

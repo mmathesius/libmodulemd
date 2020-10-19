@@ -1,6 +1,6 @@
 /*
  * This file is part of libmodulemd
- * Copyright (C) 2017-2018 Stephen Gallagher
+ * Copyright (C) 2017-2020 Stephen Gallagher
  *
  * Fedora-License-Identifier: MIT
  * SPDX-2.0-License-Identifier: MIT
@@ -904,7 +904,7 @@ modulemd_yaml_get_doctype_string (ModulemdYamlDocumentTypeEnum doctype,
       if (mdversion <= 2)
         {
           return "modulemd";
-	}
+        }
         return "modulemd-stream";
 
     case MODULEMD_YAML_DOC_DEFAULTS: return "modulemd-defaults";
