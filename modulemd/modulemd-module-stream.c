@@ -12,13 +12,16 @@
  */
 
 #include "modulemd-errors.h"
+#include "modulemd-module-index.h"
 #include "modulemd-module-stream-v1.h"
 #include "modulemd-module-stream-v2.h"
+#include "modulemd-module-stream-v3.h"
 #include "modulemd-module-stream.h"
 #include "private/modulemd-component-private.h"
 #include "private/modulemd-module-stream-private.h"
 #include "private/modulemd-module-stream-v1-private.h"
 #include "private/modulemd-module-stream-v2-private.h"
+#include "private/modulemd-module-stream-v3-private.h"
 #include "private/modulemd-subdocument-info-private.h"
 #include "private/modulemd-util.h"
 #include "private/modulemd-yaml.h"
@@ -478,7 +481,10 @@ modulemd_module_stream_copy (ModulemdModuleStream *self,
 
 
 static ModulemdModuleStream *
-modulemd_module_stream_upgrade_to_v2 (ModulemdModuleStream *from);
+modulemd_module_stream_upgrade_v1_to_v2 (ModulemdModuleStream *from);
+
+static ModulemdModuleStream *
+modulemd_module_stream_upgrade_v2_to_v3 (ModulemdModuleStream *from);
 
 ModulemdModuleStream *
 modulemd_module_stream_upgrade (ModulemdModuleStream *self,
@@ -520,18 +526,35 @@ modulemd_module_stream_upgrade (ModulemdModuleStream *self,
       switch (current_mdversion)
         {
         case 1:
-          /* Upgrade to ModuleStreamV2 */
+          /* Upgrade from ModuleStreamV1 to ModuleStreamV2 */
           updated_stream =
-            modulemd_module_stream_upgrade_to_v2 (current_stream);
+            modulemd_module_stream_upgrade_v1_to_v2 (current_stream);
           if (!updated_stream)
             {
               /* This should be impossible, since there are no failure returns
-               * from modulemd_module_stream_upgrade_to_v2()
+               * from modulemd_module_stream_upgrade_v1_to_v2()
                */
               g_set_error (error,
                            MODULEMD_ERROR,
                            MMD_ERROR_UPGRADE,
                            "Upgrading to v2 failed for an unknown reason");
+              return NULL;
+            }
+          break;
+
+        case 2:
+          /* Upgrade from ModuleStreamV2 to ModuleStreamV3 */
+          updated_stream =
+            modulemd_module_stream_upgrade_v2_to_v3 (current_stream);
+          if (!updated_stream)
+            {
+              /* This should be impossible, since there are no failure returns
+               * from modulemd_module_stream_upgrade_v2_to_v3()
+               */
+              g_set_error (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "Upgrading to v3 failed for an unknown reason");
               return NULL;
             }
           break;
@@ -558,7 +581,7 @@ modulemd_module_stream_upgrade (ModulemdModuleStream *self,
 
 
 static ModulemdModuleStream *
-modulemd_module_stream_upgrade_to_v2 (ModulemdModuleStream *from)
+modulemd_module_stream_upgrade_v1_to_v2 (ModulemdModuleStream *from)
 {
   ModulemdModuleStreamV1 *v1_stream = NULL;
   g_autoptr (ModulemdModuleStreamV2) copy = NULL;
@@ -649,6 +672,149 @@ modulemd_module_stream_upgrade_to_v2 (ModulemdModuleStream *from)
 
   return MODULEMD_MODULE_STREAM (g_steal_pointer (&copy));
 }
+
+
+static ModulemdModuleIndex *
+modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from)
+{
+  ModulemdModuleStreamV2 *v2_stream = NULL;
+  g_autoptr (ModulemdModuleStreamV3) copy = NULL;
+  g_autoptr (ModulemdDependencies) deps = NULL;
+  GHashTableIter iter;
+  gpointer key;
+  gpointer value;
+
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V2 (from), NULL);
+  v2_stream = MODULEMD_MODULE_STREAM_V2 (from);
+
+  copy = modulemd_module_stream_v3_new (
+    modulemd_module_stream_get_module_name (from),
+    modulemd_module_stream_get_stream_name (from));
+
+
+  /* Parent class copy */
+  modulemd_module_stream_set_version (
+    MODULEMD_MODULE_STREAM (copy), modulemd_module_stream_get_version (from));
+  modulemd_module_stream_set_context (
+    MODULEMD_MODULE_STREAM (copy), modulemd_module_stream_get_context (from));
+  modulemd_module_stream_associate_translation (
+    MODULEMD_MODULE_STREAM (copy),
+    modulemd_module_stream_get_translation (from));
+
+  /* Copy all attributes that are the same as V2 */
+
+  /* Properties */
+  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, arch);
+  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, buildopts);
+  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, community);
+  STREAM_UPGRADE_IF_SET_WITH_LOCALE (v2, v3, copy, v2_stream, description);
+  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, documentation);
+  STREAM_UPGRADE_IF_SET_WITH_LOCALE (v2, v3, copy, v2_stream, summary);
+  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, tracker);
+
+  /* Internal Data Structures: With replace function */
+  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, content_licenses);
+  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, module_licenses);
+  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_api);
+  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_artifacts);
+  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_filters);
+
+  /* Internal Data Structures: With add on value */
+  COPY_HASHTABLE_BY_VALUE_ADDER (
+    copy, v2_stream, rpm_components, modulemd_module_stream_v3_add_component);
+  COPY_HASHTABLE_BY_VALUE_ADDER (copy,
+                                 v2_stream,
+                                 module_components,
+                                 modulemd_module_stream_v3_add_component);
+  COPY_HASHTABLE_BY_VALUE_ADDER (
+    copy, v2_stream, profiles, modulemd_module_stream_v3_add_profile);
+
+  /* Note: servicelevels have been dropped in v3 */
+
+  if (v2_stream->xmd != NULL)
+    {
+      modulemd_module_stream_v3_set_xmd (copy, v2_stream->xmd);
+    }
+
+#if 0
+  /* TODO: stream expansion of v2 dependencies */
+
+  /* Upgrade the Dependencies */
+  if (g_hash_table_size (v2_stream->buildtime_deps) > 0 ||
+      g_hash_table_size (v2_stream->runtime_deps) > 0)
+    {
+      deps = modulemd_dependencies_new ();
+
+      /* Add the build-time deps */
+      g_hash_table_iter_init (&iter, v2_stream->buildtime_deps);
+      while (g_hash_table_iter_next (&iter, &key, &value))
+        {
+          modulemd_dependencies_add_buildtime_stream (deps, key, value);
+        }
+
+      /* Add the run-time deps */
+      g_hash_table_iter_init (&iter, v2_stream->runtime_deps);
+      while (g_hash_table_iter_next (&iter, &key, &value))
+        {
+          modulemd_dependencies_add_runtime_stream (deps, key, value);
+        }
+
+      /* Add the Dependencies to this ModuleStreamV3 */
+      modulemd_module_stream_v3_add_dependencies (copy, deps);
+    }
+#endif
+
+  return MODULEMD_MODULE_STREAM (g_steal_pointer (&copy));
+}
+
+
+static ModulemdModuleStream *
+modulemd_module_stream_upgrade_v2_to_v3 (ModulemdModuleStream *from)
+{
+    g_autoptr (ModulemdModuleIndex) index = NULL;
+    g_auto (GStrv) module_names = NULL;
+    g_autoptr (ModulemdModule) module = NULL;
+    GPtrArray *module_streams = NULL;
+
+    index = modulemd_module_stream_upgrade_v2_to_v3_ext(from);
+    if (!index)
+      {
+        /* ERROR: upgrade failed */
+        return NULL;
+      }
+
+    module_names = modulemd_module_index_get_module_names_as_strv (index);
+    if (!module_names || g_strv_length (module_names) != 1)
+      {
+        /* ERROR: should be exactly one module in index */
+        return NULL;
+      }
+
+    module = modulemd_module_index_get_module (index, g_ptr_array_index (module_names, 0));
+    if (! module)
+      {
+        /* ERROR: where did it go? */
+        return NULL;
+      }
+
+    module_streams = modulemd_module_get_all_streams (module);
+    if (! module_streams)
+      {
+        /* ERROR: where did it go? */
+        return NULL;
+      }
+
+    if (module_streams->len != 1)
+      {
+        /* ERROR: there should be only one stream if using this method */
+        return NULL;
+      }
+
+    /* return the single stream */
+    return g_ptr_array_index (module_streams, 0);
+
+}
+
 
 
 static gboolean
