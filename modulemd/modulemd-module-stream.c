@@ -714,86 +714,91 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
 
       /* TODO: stream expansion of v2 dependencies */
       expanded_deps = expand_stream_v2_deps (deps);
-      if (! expanded_deps)
+      if (!expanded_deps)
         {
           /* TODO: error */
           return NULL;
         }
 
-      for ( ; FALSE; ) /* for each expanded set of deps */
+      for (; FALSE;) /* for each expanded set of deps */
         {
-	  copy = modulemd_module_stream_v3_new (
-	    modulemd_module_stream_get_module_name (from),
-	    modulemd_module_stream_get_stream_name (from));
+          copy = modulemd_module_stream_v3_new (
+            modulemd_module_stream_get_module_name (from),
+            modulemd_module_stream_get_stream_name (from));
 
           /* TODO: copy in platform, runtime_deps, buildtime_deps */
-          modulemd_module_stream_v3_set_platform(copy, "f32");
-          modulemd_module_stream_v3_add_runtime_requirement(copy, "module", "stream");
-          modulemd_module_stream_v3_add_buildtime_requirement(copy, "module", "stream");
+          modulemd_module_stream_v3_set_platform (copy, "f32");
+          modulemd_module_stream_v3_add_runtime_requirement (
+            copy, "module", "stream");
+          modulemd_module_stream_v3_add_buildtime_requirement (
+            copy, "module", "stream");
 
-	  /* Parent class copy */
-	  modulemd_module_stream_set_version (
-	    MODULEMD_MODULE_STREAM (copy),
-	    modulemd_module_stream_get_version (from));
-	  modulemd_module_stream_set_context (
-	    MODULEMD_MODULE_STREAM (copy),
-	    modulemd_module_stream_get_context (from));
-	  modulemd_module_stream_associate_translation (
-	    MODULEMD_MODULE_STREAM (copy),
-	    modulemd_module_stream_get_translation (from));
+          /* Parent class copy */
+          modulemd_module_stream_set_version (
+            MODULEMD_MODULE_STREAM (copy),
+            modulemd_module_stream_get_version (from));
+          modulemd_module_stream_set_context (
+            MODULEMD_MODULE_STREAM (copy),
+            modulemd_module_stream_get_context (from));
+          modulemd_module_stream_associate_translation (
+            MODULEMD_MODULE_STREAM (copy),
+            modulemd_module_stream_get_translation (from));
 
-	  /* Copy all attributes that are the same as V2 */
+          /* Copy all attributes that are the same as V2 */
 
-	  /* Properties */
-	  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, arch);
-	  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, buildopts);
-	  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, community);
-	  STREAM_UPGRADE_IF_SET_WITH_LOCALE (v2, v3, copy, v2_stream, description);
-	  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, documentation);
-	  STREAM_UPGRADE_IF_SET_WITH_LOCALE (v2, v3, copy, v2_stream, summary);
-	  STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, tracker);
+          /* Properties */
+          STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, arch);
+          STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, buildopts);
+          STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, community);
+          STREAM_UPGRADE_IF_SET_WITH_LOCALE (
+            v2, v3, copy, v2_stream, description);
+          STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, documentation);
+          STREAM_UPGRADE_IF_SET_WITH_LOCALE (v2, v3, copy, v2_stream, summary);
+          STREAM_UPGRADE_IF_SET (v2, v3, copy, v2_stream, tracker);
 
-	  /* Internal Data Structures: With replace function */
-	  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, content_licenses);
-	  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, module_licenses);
-	  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_api);
-	  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_artifacts);
-	  STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_filters);
+          /* Internal Data Structures: With replace function */
+          STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, content_licenses);
+          STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, module_licenses);
+          STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_api);
+          STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_artifacts);
+          STREAM_REPLACE_HASHTABLE (v3, copy, v2_stream, rpm_filters);
 
-	  /* Internal Data Structures: With add on value */
-	  COPY_HASHTABLE_BY_VALUE_ADDER (copy,
-					 v2_stream,
-					 rpm_components,
-					 modulemd_module_stream_v3_add_component);
-	  COPY_HASHTABLE_BY_VALUE_ADDER (copy,
-					 v2_stream,
-					 module_components,
-					 modulemd_module_stream_v3_add_component);
-	  COPY_HASHTABLE_BY_VALUE_ADDER (
-	    copy, v2_stream, profiles, modulemd_module_stream_v3_add_profile);
+          /* Internal Data Structures: With add on value */
+          COPY_HASHTABLE_BY_VALUE_ADDER (
+            copy,
+            v2_stream,
+            rpm_components,
+            modulemd_module_stream_v3_add_component);
+          COPY_HASHTABLE_BY_VALUE_ADDER (
+            copy,
+            v2_stream,
+            module_components,
+            modulemd_module_stream_v3_add_component);
+          COPY_HASHTABLE_BY_VALUE_ADDER (
+            copy, v2_stream, profiles, modulemd_module_stream_v3_add_profile);
 
-	  /* Note: servicelevels have been dropped in v3 */
+          /* Note: servicelevels have been dropped in v3 */
 
-	  if (v2_stream->xmd != NULL)
-	    {
-	      modulemd_module_stream_v3_set_xmd (copy, v2_stream->xmd);
-	    }
+          if (v2_stream->xmd != NULL)
+            {
+              modulemd_module_stream_v3_set_xmd (copy, v2_stream->xmd);
+            }
 
-	  if (!modulemd_module_stream_validate (MODULEMD_MODULE_STREAM (copy),
-						&nested_error))
-	    {
-	      g_propagate_error (error, g_steal_pointer (&nested_error));
-	      return NULL;
-	    }
+          if (!modulemd_module_stream_validate (MODULEMD_MODULE_STREAM (copy),
+                                                &nested_error))
+            {
+              g_propagate_error (error, g_steal_pointer (&nested_error));
+              return NULL;
+            }
 
-	  if (!modulemd_module_index_add_module_stream (
-		index, MODULEMD_MODULE_STREAM (copy), error))
-	    {
-	      return NULL;
-	    }
+          if (!modulemd_module_index_add_module_stream (
+                index, MODULEMD_MODULE_STREAM (copy), error))
+            {
+              return NULL;
+            }
         }
 
-        g_ptr_array_free (expanded_deps, TRUE);
+      g_ptr_array_free (expanded_deps, TRUE);
     }
 
   return g_steal_pointer (&index);

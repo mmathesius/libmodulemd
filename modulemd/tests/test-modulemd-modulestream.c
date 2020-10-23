@@ -796,6 +796,18 @@ module_stream_test_upgrade_v1_to_v2 (void)
   g_clear_pointer (&yaml_str, g_free);
 }
 
+static void
+module_stream_test_upgrade_v2_to_v3 (void)
+{
+  /* TODO: implement test */
+}
+
+static void
+module_stream_test_upgrade_v1_to_v3 (void)
+{
+  /* TODO: implement test */
+}
+
 
 static void
 module_stream_test_v2_yaml (void)
@@ -4788,6 +4800,12 @@ main (int argc, char *argv[])
 
   g_test_add_func ("/modulemd/v2/modulestream/upgrade_v1_to_v2",
                    module_stream_test_upgrade_v1_to_v2);
+
+  g_test_add_func ("/modulemd/v2/modulestream/upgrade_v2_to_v3",
+                   module_stream_test_upgrade_v2_to_v3);
+
+  g_test_add_func ("/modulemd/v2/modulestream/upgrade_v1_to_v3",
+                   module_stream_test_upgrade_v1_to_v3);
 
   g_test_add_func ("/modulemd/v2/modulestream/v1/rpm_artifacts",
                    module_stream_v1_test_rpm_artifacts);
