@@ -672,19 +672,64 @@ modulemd_module_stream_upgrade_v1_to_v2 (ModulemdModuleStream *from)
   return MODULEMD_MODULE_STREAM (g_steal_pointer (&copy));
 }
 
-struct stream_v2_expansion
+typedef struct
 {
-  const gchar *platform;
+  gchar *platform;
   GHashTable *runtime_reqs;
   GHashTable *buildtime_reqs;
-};
+} expanded_stream_v2_dep;
 
+/* TODO: make this really work */
 static GPtrArray *
 expand_stream_v2_deps (ModulemdDependencies *deps)
 {
-  GPtrArray *expanded_deps = NULL;
+  g_autoptr (GPtrArray) expanded_deps = NULL;
+  gpointer key;
+  gpointer value;
+  expanded_stream_v2_dep *ex_dep = NULL;
 
-  return expanded_deps;
+  expanded_deps = g_ptr_array_new ();
+
+  for (guint i = 1; i <= 10; i++)
+    {
+      ex_dep = g_new (expanded_stream_v2_dep, 1);
+
+      ex_dep->platform = g_strdup_printf ("f%d", i);
+
+      ex_dep->runtime_reqs =
+        g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+      key = g_strdup_printf ("runmodule%d", i);
+      value = g_strdup_printf ("runstream%d", i);
+      g_hash_table_replace (ex_dep->runtime_reqs, key, value);
+
+      ex_dep->buildtime_reqs =
+        g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+      key = g_strdup_printf ("buildmodule%d", i);
+      value = g_strdup_printf ("buildstream%d", i);
+      g_hash_table_replace (ex_dep->runtime_reqs, key, value);
+
+      g_ptr_array_add (expanded_deps, ex_dep);
+    }
+
+  return g_steal_pointer (&expanded_deps);
+}
+
+static void
+expand_stream_v2_deps_cleanup (GPtrArray *expanded_deps)
+{
+  expanded_stream_v2_dep *ex_dep = NULL;
+
+  for (guint i = 0; i < expanded_deps->len; i++)
+    {
+      ex_dep = (expanded_stream_v2_dep *)g_ptr_array_index (expanded_deps, i);
+
+      g_free (ex_dep->platform);
+      g_hash_table_unref (ex_dep->runtime_reqs);
+      g_hash_table_unref (ex_dep->buildtime_reqs);
+      g_free (ex_dep);
+    }
+
+  g_ptr_array_free (expanded_deps, TRUE);
 }
 
 static ModulemdModuleIndex *
@@ -697,6 +742,7 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
   g_autoptr (ModulemdDependencies) deps = NULL;
   g_autoptr (GError) nested_error = NULL;
   g_autoptr (GPtrArray) expanded_deps = NULL;
+  expanded_stream_v2_dep *ex_dep = NULL;
   GHashTableIter iter;
   gpointer key;
   gpointer value;
@@ -712,7 +758,6 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
       deps =
         MODULEMD_DEPENDENCIES (g_ptr_array_index (v2_stream->dependencies, i));
 
-      /* TODO: stream expansion of v2 dependencies */
       expanded_deps = expand_stream_v2_deps (deps);
       if (!expanded_deps)
         {
@@ -720,18 +765,42 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
           return NULL;
         }
 
-      for (; FALSE;) /* for each expanded set of deps */
+      /* for each of the expanded set of deps */
+      for (guint j = 0; i < expanded_deps->len; j++)
         {
+          ex_dep =
+            (expanded_stream_v2_dep *)g_ptr_array_index (expanded_deps, j);
+
           copy = modulemd_module_stream_v3_new (
             modulemd_module_stream_get_module_name (from),
             modulemd_module_stream_get_stream_name (from));
 
           /* TODO: copy in platform, runtime_deps, buildtime_deps */
-          modulemd_module_stream_v3_set_platform (copy, "f32");
-          modulemd_module_stream_v3_add_runtime_requirement (
-            copy, "module", "stream");
-          modulemd_module_stream_v3_add_buildtime_requirement (
-            copy, "module", "stream");
+          modulemd_module_stream_v3_set_platform (copy, ex_dep->platform);
+
+          if (g_hash_table_size (ex_dep->runtime_reqs) > 0)
+            {
+              /* Add the run-time requirements */
+              g_hash_table_iter_init (&iter, ex_dep->runtime_reqs);
+              while (g_hash_table_iter_next (&iter, &key, &value))
+                {
+                  modulemd_module_stream_v3_add_runtime_requirement (
+                    copy, key, value);
+                }
+            }
+
+          if (g_hash_table_size (ex_dep->buildtime_reqs) > 0)
+            {
+              /* Add the build-time requirements */
+              g_hash_table_iter_init (&iter, ex_dep->buildtime_reqs);
+              while (g_hash_table_iter_next (&iter, &key, &value))
+                {
+                  modulemd_module_stream_v3_add_buildtime_requirement (
+                    copy, key, value);
+                }
+            }
+
+          /* Now copy everything else that's the same for every expansion */
 
           /* Parent class copy */
           modulemd_module_stream_set_version (
@@ -798,37 +867,10 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
             }
         }
 
-      g_ptr_array_free (expanded_deps, TRUE);
+      expand_stream_v2_deps_cleanup (expanded_deps);
     }
 
   return g_steal_pointer (&index);
-#if 0
-
-  /* Upgrade the Dependencies */
-  if (g_hash_table_size (v2_stream->buildtime_deps) > 0 ||
-      g_hash_table_size (v2_stream->runtime_deps) > 0)
-    {
-      deps = modulemd_dependencies_new ();
-
-      /* Add the build-time deps */
-      g_hash_table_iter_init (&iter, v2_stream->buildtime_deps);
-      while (g_hash_table_iter_next (&iter, &key, &value))
-        {
-          modulemd_dependencies_add_buildtime_stream (deps, key, value);
-        }
-
-      /* Add the run-time deps */
-      g_hash_table_iter_init (&iter, v2_stream->runtime_deps);
-      while (g_hash_table_iter_next (&iter, &key, &value))
-        {
-          modulemd_dependencies_add_runtime_stream (deps, key, value);
-        }
-
-      /* Add the Dependencies to this ModuleStreamV3 */
-      modulemd_module_stream_v3_add_dependencies (copy, deps);
-    }
-  return MODULEMD_MODULE_STREAM (g_steal_pointer (&copy));
-#endif
 }
 
 
