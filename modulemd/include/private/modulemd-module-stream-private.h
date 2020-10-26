@@ -386,6 +386,8 @@ modulemd_module_stream_includes_nevra (ModulemdModuleStream *self,
 /**
  * modulemd_module_stream_expand_v2_to_v3_deps:
  * @deps: A V2 #ModulemdDependencies object.
+ * @error: (out): A #GError that will return the reason stream expansion
+ * failed.
  *
  * Returns: a #GPtrArray of V3 #ModulemdBuildConfig objects representing
  * the stream expansion of the V2 @deps object.
@@ -393,6 +395,7 @@ modulemd_module_stream_includes_nevra (ModulemdModuleStream *self,
  * Since: 2.10
  */
 GPtrArray *
-modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps);
+modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
+                                             GError **error);
 
 G_END_DECLS

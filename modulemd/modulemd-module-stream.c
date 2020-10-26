@@ -263,10 +263,11 @@ modulemd_module_stream_read_yaml (yaml_parser_t *parser,
     case MD_MODULESTREAM_VERSION_THREE:
       if (doctype == MODULEMD_YAML_DOC_PACKAGER)
         {
-          g_set_error (error,
-                       MODULEMD_YAML_ERROR,
-                       MMD_YAML_ERROR_PROGRAMMING,
-                       "Incorrect function to parse modulemd-packager v3");
+          g_set_error_literal (
+            error,
+            MODULEMD_YAML_ERROR,
+            MMD_YAML_ERROR_PROGRAMMING,
+            "Incorrect function to parse modulemd-packager v3");
           return NULL;
         }
       stream = MODULEMD_MODULE_STREAM (
@@ -495,6 +496,7 @@ modulemd_module_stream_upgrade (ModulemdModuleStream *self,
 {
   g_autoptr (ModulemdModuleStream) current_stream = NULL;
   g_autoptr (ModulemdModuleStream) updated_stream = NULL;
+  g_autoptr (GError) nested_error = NULL;
   guint64 current_mdversion = modulemd_module_stream_get_mdversion (self);
 
   g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM (self), NULL);
@@ -546,15 +548,13 @@ modulemd_module_stream_upgrade (ModulemdModuleStream *self,
 
         case 2:
           /* Upgrade from ModuleStreamV2 to ModuleStreamV3 */
-          updated_stream =
-            modulemd_module_stream_upgrade_v2_to_v3 (current_stream, error);
+          updated_stream = modulemd_module_stream_upgrade_v2_to_v3 (
+            current_stream, &nested_error);
           if (!updated_stream)
             {
-              /* TODO: nest error */
-              g_set_error (error,
-                           MODULEMD_ERROR,
-                           MMD_ERROR_UPGRADE,
-                           "Upgrading to v3 failed for an unknown reason");
+              g_propagate_prefixed_error (error,
+                                          g_steal_pointer (&nested_error),
+                                          "Upgrading to v3 failed: ");
               return NULL;
             }
           break;
@@ -676,13 +676,16 @@ modulemd_module_stream_upgrade_v1_to_v2 (ModulemdModuleStream *from)
 
 /* TODO: make this really work */
 GPtrArray *
-modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps)
+modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
+                                             GError **error)
 {
   g_autoptr (GPtrArray) expanded_deps = NULL;
   gchar *platform;
   gchar *module;
   gchar *stream;
   ModulemdBuildConfig *ex_dep = NULL;
+
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
   expanded_deps = g_ptr_array_new ();
 
@@ -726,6 +729,7 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
   g_autoptr (ModulemdBuildConfig) ex_dep = NULL;
   g_auto (GStrv) modules = NULL;
 
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
   g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V2 (from), NULL);
   v2_stream = MODULEMD_MODULE_STREAM_V2 (from);
 
@@ -738,10 +742,14 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
         MODULEMD_DEPENDENCIES (g_ptr_array_index (v2_stream->dependencies, i));
 
       /* perform stream expansion on each of the V2 deps */
-      expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (v2_deps);
+      expanded_deps =
+        modulemd_module_stream_expand_v2_to_v3_deps (v2_deps, &nested_error);
       if (!expanded_deps)
         {
-          /* TODO: error */
+          g_propagate_prefixed_error (
+            error,
+            g_steal_pointer (&nested_error),
+            "Unable to expand stream V2 dependencies to V3: ");
           return NULL;
         }
 
@@ -842,8 +850,9 @@ modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStream *from,
             }
 
           if (!modulemd_module_index_add_module_stream (
-                index, MODULEMD_MODULE_STREAM (copy), error))
+                index, MODULEMD_MODULE_STREAM (copy), &nested_error))
             {
+              g_propagate_error (error, g_steal_pointer (&nested_error));
               return NULL;
             }
         }
@@ -862,41 +871,35 @@ modulemd_module_stream_upgrade_v2_to_v3 (ModulemdModuleStream *from,
   g_autoptr (ModulemdModuleIndex) index = NULL;
   g_auto (GStrv) module_names = NULL;
   g_autoptr (ModulemdModule) module = NULL;
+  g_autoptr (GError) nested_error = NULL;
   GPtrArray *module_streams = NULL;
 
-  /* TODO: error handling */
-
-  index = modulemd_module_stream_upgrade_v2_to_v3_ext (from, error);
+  index = modulemd_module_stream_upgrade_v2_to_v3_ext (from, &nested_error);
   if (!index)
     {
-      /* ERROR: upgrade failed */
+      g_propagate_error (error, g_steal_pointer (&nested_error));
       return NULL;
     }
 
   module_names = modulemd_module_index_get_module_names_as_strv (index);
   if (!module_names || g_strv_length (module_names) != 1)
     {
-      /* ERROR: should be exactly one module in index */
+      g_set_error_literal (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "Stream v2 upgrade must return a single module.");
       return NULL;
     }
 
   module = modulemd_module_index_get_module (index, module_names[0]);
-  if (!module)
-    {
-      /* ERROR: where did it go? */
-      return NULL;
-    }
-
   module_streams = modulemd_module_get_all_streams (module);
-  if (!module_streams)
-    {
-      /* ERROR: where did it go? */
-      return NULL;
-    }
 
   if (module_streams->len != 1)
     {
-      /* ERROR: there should be only one stream if using this method */
+      g_set_error_literal (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "Stream v2 upgrade must return a single stream.");
       return NULL;
     }
 
@@ -1005,7 +1008,7 @@ modulemd_module_stream_validate_components (GHashTable *components,
        */
       if (has_buildafter && has_buildorder)
         {
-          g_set_error (
+          g_set_error_literal (
             error,
             MODULEMD_ERROR,
             MMD_ERROR_VALIDATE,
