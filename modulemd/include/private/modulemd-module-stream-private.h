@@ -382,4 +382,17 @@ gboolean
 modulemd_module_stream_includes_nevra (ModulemdModuleStream *self,
                                        const gchar *nevra_pattern);
 
+
+/**
+ * modulemd_module_stream_expand_v2_to_v3_deps:
+ * @deps: A V2 #ModulemdDependencies object.
+ *
+ * Returns: a #GPtrArray of V3 #ModulemdBuildConfig objects representing
+ * the stream expansion of the V2 @deps object.
+ *
+ * Since: 2.10
+ */
+GPtrArray *
+modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps);
+
 G_END_DECLS
