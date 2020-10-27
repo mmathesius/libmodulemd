@@ -828,9 +828,15 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
   modulemd_dependencies_add_buildtime_stream (dep, "bar", "C");
   modulemd_dependencies_add_buildtime_stream (dep, "bar", "D");
 
-  modulemd_dependencies_set_empty_buildtime_dependencies_for_module (dep,
-                                                                     "baz");
+  modulemd_dependencies_add_runtime_stream (dep, "platform", "f32");
+  modulemd_dependencies_add_runtime_stream (dep, "platform", "f33");
+  modulemd_dependencies_add_runtime_stream (dep, "baz", "E");
+  modulemd_dependencies_add_runtime_stream (dep, "baz", "F");
+  modulemd_dependencies_add_runtime_stream (dep, "qux", "G");
+  modulemd_dependencies_add_runtime_stream (dep, "qux", "H");
 
+  modulemd_dependencies_set_empty_buildtime_dependencies_for_module (
+    dep, "no_deps");
 
   expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
   g_assert_no_error (error);
@@ -851,7 +857,7 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
       g_assert_true (mmd_emitter_end_document (&emitter, &error));
     }
   g_assert_true (mmd_emitter_end_stream (&emitter, &error));
-  g_debug ("YAML dump:\n%s", yaml_string->str);
+  g_debug ("YAML dump of expanded dependencies:\n%s", yaml_string->str);
 
   g_clear_pointer (&expanded_deps, g_ptr_array_unref);
 }
