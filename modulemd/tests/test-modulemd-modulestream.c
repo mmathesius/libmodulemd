@@ -20,6 +20,7 @@
 #include "modulemd-module-index.h"
 #include "modulemd-module-stream.h"
 #include "private/glib-extensions.h"
+#include "private/modulemd-build-config.h"
 #include "private/modulemd-module-stream-private.h"
 #include "private/modulemd-module-stream-v1-private.h"
 #include "private/modulemd-module-stream-v2-private.h"
@@ -806,6 +807,36 @@ static void
 module_stream_test_upgrade_v1_to_v3 (void)
 {
   /* TODO: implement test */
+}
+
+
+static void
+module_stream_test_stream_deps_expansion_v2_to_v3 (void)
+{
+  g_autoptr (ModulemdDependencies) dep = NULL;
+  g_autoptr (ModulemdBuildConfig) ex_dep = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GPtrArray) expanded_deps = NULL;
+
+  dep = modulemd_dependencies_new ();
+  modulemd_dependencies_add_buildtime_stream (dep, "foo", "stable");
+  modulemd_dependencies_add_buildtime_stream (dep, "foo", "rolling");
+#if 0
+  modulemd_dependencies_set_empty_runtime_dependencies_for_module (dep, "bar");
+#endif
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps(dep, &error);
+  g_assert_no_error (error);
+  g_assert_nonnull (expanded_deps);
+
+  g_debug ("Got %d expanded dependencs", expanded_deps->len);
+  for (guint i = 0; i < expanded_deps->len; i++)
+    {
+      ex_dep = (ModulemdBuildConfig *)g_ptr_array_index (expanded_deps, i);
+      g_assert_true (MODULEMD_IS_BUILD_CONFIG (ex_dep));
+    }
+
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
 }
 
 
@@ -4806,6 +4837,9 @@ main (int argc, char *argv[])
 
   g_test_add_func ("/modulemd/v2/modulestream/upgrade_v1_to_v3",
                    module_stream_test_upgrade_v1_to_v3);
+
+  g_test_add_func ("/modulemd/v2/modulestream/stream_expansion_v2_to_v3",
+                   module_stream_test_stream_deps_expansion_v2_to_v3);
 
   g_test_add_func ("/modulemd/v2/modulestream/v1/rpm_artifacts",
                    module_stream_v1_test_rpm_artifacts);

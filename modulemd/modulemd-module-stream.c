@@ -691,12 +691,16 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
 
   g_return_val_if_fail (error == NULL || *error == NULL, NULL);
 
+  g_debug ("Expansion: beginning v2 to v3 stream dependency expansion");
 
   buildtime_modules =
     modulemd_dependencies_get_buildtime_modules_as_strv (deps);
   runtime_modules = modulemd_dependencies_get_runtime_modules_as_strv (deps);
 
-  if (g_strv_length (buildtime_modules) == 0 ||
+  g_debug ("Expansion: %d buildtime and %d runtime module dependencies",
+           g_strv_length (buildtime_modules), g_strv_length (runtime_modules));
+
+  if (g_strv_length (buildtime_modules) == 0 &&
       g_strv_length (runtime_modules) == 0)
     {
       g_set_error_literal (error,
@@ -713,26 +717,35 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
   /* - remove platform conflicts */
   /* - set platform */
 
-  expanded_deps = NULL;
+  expanded_deps = g_ptr_array_new ();
 
   /* for each buildtime module... */
   for (guint i = 0; i < g_strv_length (buildtime_modules); i++)
     {
-      streams = modulemd_dependencies_get_buildtime_streams_as_strv (deps, module);
+      module = buildtime_modules[i];
+      streams =
+        modulemd_dependencies_get_buildtime_streams_as_strv (deps, module);
+
+      g_debug ("Expansion: buildtime module dependency %s has %d streams",
+               module, g_strv_length (streams));
+
       /* for each buildtime module stream... */
       for (guint j = 0; j < g_strv_length (streams); j++)
         {
-          module = buildtime_modules[i];
           stream = streams[j];
+          g_debug ("Expansion: looking at buildtime stream dependency %s:%s", module, stream);
 
           new_expanded_deps = g_ptr_array_new ();
 
           /* if no expanded dependencies yet, just create a new dep for this module and stream */
-          if (!expanded_deps)
+          if (expanded_deps->len == 0)
             {
+              g_debug ("Expansion: creating new dependency");
+
               new_dep = modulemd_build_config_new ();
-              modulemd_build_config_add_buildtime_requirement (new_dep, module, stream);
-              g_ptr_array_add (new_expanded_deps, g_steal_pointer (&new_dep));
+              modulemd_build_config_add_buildtime_requirement (
+                new_dep, module, stream);
+              g_ptr_array_add (new_expanded_deps, new_dep);
             }
           /* otherwise, expand on what we already have */
           else
@@ -740,55 +753,37 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
               /* for every expanded dependency we have so far... */
               for (guint k = 0; k < expanded_deps->len; k++)
                 {
+                  g_debug ("Expansion: expanding existing dependency");
                   /* Make a copy of the existing expanded dependency and add this module and stream */
-                  new_dep = modulemd_build_config_copy (g_ptr_array_index (expanded_deps, k));
-                  modulemd_build_config_add_buildtime_requirement (new_dep, module, stream);
-                  g_ptr_array_add (new_expanded_deps, g_steal_pointer (&new_dep));
+                  new_dep = modulemd_build_config_copy (
+                    g_ptr_array_index (expanded_deps, k));
+                  modulemd_build_config_add_buildtime_requirement (
+                    new_dep, module, stream);
+                  g_ptr_array_add (new_expanded_deps,
+                                   g_steal_pointer (&new_dep));
                 }
             }
-        }
 
-        g_clear_pointer (&expanded_deps, g_ptr_array_unref);
-        expanded_deps = new_expanded_deps;
-      }
+          g_debug ("Expansion: new set has %d deps", new_expanded_deps->len);
+          g_debug ("Expansion: old set has %d deps", expanded_deps->len);
 
-  /* repeat for each runtime module... */
-  for (guint i = 0; i < g_strv_length (runtime_modules); i++)
-    {
-      streams = modulemd_dependencies_get_runtime_streams_as_strv (deps, module);
-      /* for each runtime module stream... */
-      for (guint j = 0; j < g_strv_length (streams); j++)
-        {
-          module = runtime_modules[i];
-          stream = streams[j];
-
-          new_expanded_deps = g_ptr_array_new ();
-
-          /* if no expanded dependencies yet, just create a new dep for this module and stream */
-          if (!expanded_deps)
+          if (1 || new_expanded_deps->len > 0)
             {
-              new_dep = modulemd_build_config_new ();
-              modulemd_build_config_add_runtime_requirement (new_dep, module, stream);
-              g_ptr_array_add (new_expanded_deps, g_steal_pointer (&new_dep));
+              g_debug ("Expansion: replacing old set of %d deps with new set of %d deps", expanded_deps->len, new_expanded_deps->len);
+              g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+              expanded_deps = new_expanded_deps;
+              new_expanded_deps = NULL;
             }
-          /* otherwise, expand on what we already have */
-          else
-            {
-              /* for every expanded dependency we have so far... */
-              for (guint k = 0; k < expanded_deps->len; k++)
-                {
-                  /* Make a copy of the existing expanded dependency and add this module and stream */
-                  new_dep = modulemd_build_config_copy (g_ptr_array_index (expanded_deps, k));
-                  modulemd_build_config_add_runtime_requirement (new_dep, module, stream);
-                  g_ptr_array_add (new_expanded_deps, g_steal_pointer (&new_dep));
-                }
-            }
-        }
 
-        g_clear_pointer (&expanded_deps, g_ptr_array_unref);
-        expanded_deps = new_expanded_deps;
-      }
+        } /* for each buildtime module stream... */
 
+        g_clear_pointer (&streams, g_strfreev);
+
+    } /* for each buildtime module... */
+
+  /* TODO: REPEAT FOR RUNTIME MODULES */
+
+  g_debug ("Expansion: complete with %d deps", expanded_deps->len);
   return g_steal_pointer (&expanded_deps);
 }
 
