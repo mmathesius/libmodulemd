@@ -817,24 +817,41 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
   g_autoptr (ModulemdBuildConfig) ex_dep = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (GPtrArray) expanded_deps = NULL;
+  MMD_INIT_YAML_EMITTER (emitter);
+  MMD_INIT_YAML_STRING (&emitter, yaml_string);
 
   dep = modulemd_dependencies_new ();
-  modulemd_dependencies_add_buildtime_stream (dep, "foo", "stable");
-  modulemd_dependencies_add_buildtime_stream (dep, "foo", "rolling");
-#if 0
-  modulemd_dependencies_set_empty_runtime_dependencies_for_module (dep, "bar");
-#endif
+  modulemd_dependencies_add_buildtime_stream (dep, "platform", "f32");
+  modulemd_dependencies_add_buildtime_stream (dep, "platform", "f33");
+  modulemd_dependencies_add_buildtime_stream (dep, "foo", "A");
+  modulemd_dependencies_add_buildtime_stream (dep, "foo", "B");
+  modulemd_dependencies_add_buildtime_stream (dep, "bar", "C");
+  modulemd_dependencies_add_buildtime_stream (dep, "bar", "D");
 
-  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps(dep, &error);
+  modulemd_dependencies_set_empty_buildtime_dependencies_for_module (dep,
+                                                                     "baz");
+
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
   g_assert_no_error (error);
   g_assert_nonnull (expanded_deps);
 
-  g_debug ("Got %d expanded dependencs", expanded_deps->len);
+  g_debug ("Got %d expanded dependencies", expanded_deps->len);
+
+  /* dump as YAML for debugging */
+  g_assert_true (mmd_emitter_start_stream (&emitter, &error));
   for (guint i = 0; i < expanded_deps->len; i++)
     {
       ex_dep = (ModulemdBuildConfig *)g_ptr_array_index (expanded_deps, i);
       g_assert_true (MODULEMD_IS_BUILD_CONFIG (ex_dep));
+
+      g_assert_true (mmd_emitter_start_document (&emitter, &error));
+      g_assert_true (
+        modulemd_build_config_emit_yaml (ex_dep, &emitter, &error));
+      g_assert_true (mmd_emitter_end_document (&emitter, &error));
     }
+  g_assert_true (mmd_emitter_end_stream (&emitter, &error));
+  g_debug ("YAML dump:\n%s", yaml_string->str);
 
   g_clear_pointer (&expanded_deps, g_ptr_array_unref);
 }

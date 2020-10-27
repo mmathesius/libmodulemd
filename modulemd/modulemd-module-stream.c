@@ -698,7 +698,8 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
   runtime_modules = modulemd_dependencies_get_runtime_modules_as_strv (deps);
 
   g_debug ("Expansion: %d buildtime and %d runtime module dependencies",
-           g_strv_length (buildtime_modules), g_strv_length (runtime_modules));
+           g_strv_length (buildtime_modules),
+           g_strv_length (runtime_modules));
 
   if (g_strv_length (buildtime_modules) == 0 &&
       g_strv_length (runtime_modules) == 0)
@@ -727,15 +728,18 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
         modulemd_dependencies_get_buildtime_streams_as_strv (deps, module);
 
       g_debug ("Expansion: buildtime module dependency %s has %d streams",
-               module, g_strv_length (streams));
+               module,
+               g_strv_length (streams));
+
+      new_expanded_deps = g_ptr_array_new ();
 
       /* for each buildtime module stream... */
       for (guint j = 0; j < g_strv_length (streams); j++)
         {
           stream = streams[j];
-          g_debug ("Expansion: looking at buildtime stream dependency %s:%s", module, stream);
-
-          new_expanded_deps = g_ptr_array_new ();
+          g_debug ("Expansion: looking at buildtime stream dependency %s:%s",
+                   module,
+                   stream);
 
           /* if no expanded dependencies yet, just create a new dep for this module and stream */
           if (expanded_deps->len == 0)
@@ -764,20 +768,21 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
                 }
             }
 
-          g_debug ("Expansion: new set has %d deps", new_expanded_deps->len);
-          g_debug ("Expansion: old set has %d deps", expanded_deps->len);
-
-          if (1 || new_expanded_deps->len > 0)
-            {
-              g_debug ("Expansion: replacing old set of %d deps with new set of %d deps", expanded_deps->len, new_expanded_deps->len);
-              g_clear_pointer (&expanded_deps, g_ptr_array_unref);
-              expanded_deps = new_expanded_deps;
-              new_expanded_deps = NULL;
-            }
 
         } /* for each buildtime module stream... */
 
-        g_clear_pointer (&streams, g_strfreev);
+      g_clear_pointer (&streams, g_strfreev);
+
+      if (new_expanded_deps->len > 0)
+        {
+          g_debug (
+            "Expansion: replacing old set of %d deps with new set of %d deps",
+            expanded_deps->len,
+            new_expanded_deps->len);
+          g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+          expanded_deps = new_expanded_deps;
+          new_expanded_deps = NULL;
+        }
 
     } /* for each buildtime module... */
 
