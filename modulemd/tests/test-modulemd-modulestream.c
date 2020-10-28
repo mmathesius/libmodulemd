@@ -842,12 +842,14 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
 
   g_debug ("Got %d expanded dependencies", expanded_deps->len);
 
-  /* dump as YAML for debugging */
+  /* validate each dependency and dump as YAML for debugging */
   g_assert_true (mmd_emitter_start_stream (&emitter, &error));
   for (guint i = 0; i < expanded_deps->len; i++)
     {
       ex_dep = (ModulemdBuildConfig *)g_ptr_array_index (expanded_deps, i);
       g_assert_true (MODULEMD_IS_BUILD_CONFIG (ex_dep));
+
+      g_assert_true (modulemd_build_config_validate (ex_dep, &error));
 
       g_assert_true (mmd_emitter_start_document (&emitter, &error));
       ret = modulemd_build_config_emit_yaml (ex_dep, &emitter, &error);

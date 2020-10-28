@@ -673,6 +673,7 @@ modulemd_module_stream_upgrade_v1_to_v2 (ModulemdModuleStream *from)
   return MODULEMD_MODULE_STREAM (g_steal_pointer (&copy));
 }
 
+
 /*
  * stream_expansion_helper:
  * @deps: (in): A pointer to a #ModulemdDependencies object that is currently
@@ -829,19 +830,19 @@ stream_expansion_helper (ModulemdDependencies *deps,
  * dependencies.
  * @error: (out): A #GError that will return the reason for an expansion error.
  *
- * Goes through the stream expanded dependencies.
+ * The stream expanded V2 dependencies still have the "platform" module in their
+ * buildtime/runtime requirements. This function safely drops expanded
+ * dependencies that have a platform stream mis-match. For those that match, the
+ * platform attribute is set and the "platform" module is dropped from the
+ * buildtime and runtime requirements.
  *
- * Calculates the Cartesian product of the the module:stream dependencies in
- * @deps and the set of previously calculated module:stream dependencies in
- * @expanded_deps. The product is stored back to @expanded_deps.
- *
- * Returns: TRUE if expansion succeeded, FALSE otherwise.
+ * Returns: TRUE if platform resolution succeeded, FALSE otherwise.
  */
 static gboolean
 stream_expansion_resolve_platform (GPtrArray **expanded_deps, GError **error)
 {
   g_autoptr (GPtrArray) new_expanded_deps = NULL;
-  g_autoptr (ModulemdBuildConfig) dep = NULL;
+  ModulemdBuildConfig *dep = NULL;
   ModulemdBuildConfig *new_dep = NULL;
   const gchar *platform;
   const gchar *build_platform;
@@ -855,9 +856,9 @@ stream_expansion_resolve_platform (GPtrArray **expanded_deps, GError **error)
   new_expanded_deps = g_ptr_array_new ();
 
   /* for every expanded dependency... */
-  for (guint k = 0; k < (*expanded_deps)->len; k++)
+  for (guint i = 0; i < (*expanded_deps)->len; i++)
     {
-      dep = g_ptr_array_index (*expanded_deps, k);
+      dep = g_ptr_array_index (*expanded_deps, i);
 
       build_platform = modulemd_build_config_get_buildtime_requirement_stream (
         dep, "platform");
@@ -936,8 +937,119 @@ stream_expansion_resolve_platform (GPtrArray **expanded_deps, GError **error)
   return TRUE;
 }
 
-/* TODO: make this fully work */
-/* - remove dups */
+/*
+ * stream_expansion_dedup:
+ * @expanded_deps: (inout): A pointer to a pointer to a #GPtrArray of pointers
+ * to #ModulemdBuildConfig objects that is the set of stream expanded
+ * dependencies.
+ * @error: (out): A #GError that will return the reason for an error.
+ *
+ * This method goes through the stream expanded dependencies and drops any
+ * duplicates.
+ *
+ * Returns: TRUE if deduplication succeeded, FALSE otherwise.
+ */
+static gboolean
+stream_expansion_dedup (GPtrArray **expanded_deps, GError **error)
+{
+  g_autoptr (GPtrArray) deduped_expanded_deps = NULL;
+  ModulemdBuildConfig *dep = NULL;
+  ModulemdBuildConfig *new_dep = NULL;
+  gboolean duplicate;
+
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  g_debug ("Expansion: stream_expansion_dedup called with %d deps",
+           (*expanded_deps)->len);
+
+  deduped_expanded_deps = g_ptr_array_new ();
+
+  /*
+   * this is horribly inefficient, but it's the best one can do without a way
+   * to sort the objects
+   */
+
+  /* for every expanded dependency... */
+  for (guint i = 0; i < (*expanded_deps)->len; i++)
+    {
+      dep = g_ptr_array_index (*expanded_deps, i);
+
+      duplicate = FALSE;
+
+      /* for every previously deduplicated dependency... */
+      for (guint j = 0; j < deduped_expanded_deps->len; j++)
+        {
+          if (modulemd_build_config_equals (
+                dep, g_ptr_array_index (deduped_expanded_deps, j)))
+            {
+              duplicate = TRUE;
+              break;
+            }
+        }
+
+      if (!duplicate)
+        {
+          new_dep = modulemd_build_config_copy (dep);
+          g_ptr_array_add (deduped_expanded_deps, g_steal_pointer (&new_dep));
+        }
+    }
+
+  if (deduped_expanded_deps->len == 0)
+    {
+      g_set_error_literal (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "Stream v2 dependencies deduped to nothing.");
+      return FALSE;
+    }
+
+  g_debug ("Expansion: replacing old set of %d deps with new set of %d deps",
+           (*expanded_deps)->len,
+           deduped_expanded_deps->len);
+  g_clear_pointer (expanded_deps, g_ptr_array_unref);
+  *expanded_deps = deduped_expanded_deps;
+  deduped_expanded_deps = NULL;
+
+  return TRUE;
+}
+
+/*
+ * stream_expansion_gen_contexts:
+ * @expanded_deps: (inout): A pointer to a #GPtrArray of pointers to
+ * #ModulemdBuildConfig objects that is the set of stream expanded
+ * dependencies.
+ * @error: (out): A #GError that will return the reason for an error.
+ *
+ * This method goes through the stream expanded dependencies and auto-generates
+ * a context attribute.
+ *
+ * Returns: TRUE if context generation succeeded, FALSE otherwise.
+ */
+static gboolean
+stream_expansion_gen_contexts (GPtrArray *expanded_deps, GError **error)
+{
+  g_autofree gchar *context = NULL;
+  ModulemdBuildConfig *dep = NULL;
+
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  g_debug ("Expansion: stream_expansion_gen_contexts called with %d deps",
+           expanded_deps->len);
+
+  /* for every expanded dependency... */
+  for (guint i = 0; i < expanded_deps->len; i++)
+    {
+      dep = g_ptr_array_index (expanded_deps, i);
+
+      context = g_strdup_printf ("AUTO%06u", i);
+
+      modulemd_build_config_set_context (dep, context);
+
+      g_clear_pointer (&context, g_free);
+    }
+
+  return TRUE;
+}
 
 /*
  * modulemd_module_stream_expand_v2_to_v3_deps:
@@ -950,7 +1062,7 @@ stream_expansion_resolve_platform (GPtrArray **expanded_deps, GError **error)
  * "platform" the same as any other module dependency, while Stream V3
  * dependencies have "platform" as a seperate property. This function expands
  * a Stream V2 dependencies into the different possibly combinations and
- * explcitly sets the "platform".
+ * explicitly sets the "platform".
  *
  * Returns: A #GPtrArray of #ModulemdBuildConfig objects containing the stream
  * expanded version of @deps.
@@ -1023,6 +1135,24 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
         error,
         g_steal_pointer (&nested_error),
         "Unable to resolve platform for expanded dependencies: ");
+      return NULL;
+    }
+
+  if (!stream_expansion_dedup (&expanded_deps, &nested_error))
+    {
+      g_propagate_prefixed_error (
+        error,
+        g_steal_pointer (&nested_error),
+        "Unable to deduplicate expanded dependencies: ");
+      return NULL;
+    }
+
+  if (!stream_expansion_gen_contexts (expanded_deps, &nested_error))
+    {
+      g_propagate_prefixed_error (
+        error,
+        g_steal_pointer (&nested_error),
+        "Unable to generate context for expanded dependencies: ");
       return NULL;
     }
 
