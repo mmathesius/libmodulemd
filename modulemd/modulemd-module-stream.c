@@ -722,6 +722,17 @@ stream_expansion_helper (ModulemdDependencies *deps,
                module,
                g_strv_length (streams));
 
+      if (g_strv_length (streams) == 0)
+        {
+          g_set_error (error,
+                       MODULEMD_ERROR,
+                       MMD_ERROR_UPGRADE,
+                       "Cannot expand module dependency %s for all active "
+                       "existing streams.",
+                       module);
+          return FALSE;
+        }
+
       new_expanded_deps = g_ptr_array_new ();
 
       /* for each module stream... */
@@ -730,6 +741,18 @@ stream_expansion_helper (ModulemdDependencies *deps,
           stream = streams[j];
           g_debug (
             "Expansion: looking at stream dependency %s:%s", module, stream);
+
+          if (stream[0] == '-')
+            {
+              g_set_error (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "Cannot expand module dependency %s using stream "
+                           "exclusion (%s).",
+                           module,
+                           stream);
+              return FALSE;
+            }
 
           /* if no expanded dependencies yet, just create a new dep for this module and stream */
           if ((*expanded_deps)->len == 0)
@@ -777,8 +800,6 @@ stream_expansion_helper (ModulemdDependencies *deps,
 }
 
 /* TODO: make this fully work */
-/* - return error if module has no streams */
-/* - return error if module has a -streams */
 /* - remove dups */
 /* - remove platform conflicts */
 /* - set platform */
@@ -828,6 +849,7 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
       g_propagate_prefixed_error (error,
                                   g_steal_pointer (&nested_error),
                                   "Unable to expand buildtime dependencies: ");
+      return NULL;
     }
 
   g_debug ("Expansion: calling stream_expansion_helper for runtime modules");
@@ -842,6 +864,7 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
       g_propagate_prefixed_error (error,
                                   g_steal_pointer (&nested_error),
                                   "Unable to expand runtime dependencies: ");
+      return NULL;
     }
 
   g_debug ("Expansion: complete with %d deps", expanded_deps->len);

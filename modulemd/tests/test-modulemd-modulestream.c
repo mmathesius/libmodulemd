@@ -815,8 +815,8 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
 {
   g_autoptr (ModulemdDependencies) dep = NULL;
   g_autoptr (ModulemdBuildConfig) ex_dep = NULL;
-  g_autoptr (GError) error = NULL;
   g_autoptr (GPtrArray) expanded_deps = NULL;
+  g_autoptr (GError) error = NULL;
   MMD_INIT_YAML_EMITTER (emitter);
   MMD_INIT_YAML_STRING (&emitter, yaml_string);
 
@@ -826,17 +826,14 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
   modulemd_dependencies_add_buildtime_stream (dep, "foo", "A");
   modulemd_dependencies_add_buildtime_stream (dep, "foo", "B");
   modulemd_dependencies_add_buildtime_stream (dep, "bar", "C");
-  modulemd_dependencies_add_buildtime_stream (dep, "bar", "D");
 
   modulemd_dependencies_add_runtime_stream (dep, "platform", "f32");
   modulemd_dependencies_add_runtime_stream (dep, "platform", "f33");
-  modulemd_dependencies_add_runtime_stream (dep, "baz", "E");
-  modulemd_dependencies_add_runtime_stream (dep, "baz", "F");
+  modulemd_dependencies_add_runtime_stream (dep, "bar", "C");
+  modulemd_dependencies_add_runtime_stream (dep, "bar", "D");
+  modulemd_dependencies_add_runtime_stream (dep, "qux", "E");
+  modulemd_dependencies_add_runtime_stream (dep, "qux", "F");
   modulemd_dependencies_add_runtime_stream (dep, "qux", "G");
-  modulemd_dependencies_add_runtime_stream (dep, "qux", "H");
-
-  modulemd_dependencies_set_empty_buildtime_dependencies_for_module (
-    dep, "no_deps");
 
   expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
   g_assert_no_error (error);
@@ -859,6 +856,76 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
   g_assert_true (mmd_emitter_end_stream (&emitter, &error));
   g_debug ("YAML dump of expanded dependencies:\n%s", yaml_string->str);
 
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+}
+
+static void
+module_stream_test_stream_deps_expansion_v2_to_v3_no_streams (void)
+{
+  g_autoptr (ModulemdDependencies) dep = NULL;
+  g_autoptr (GPtrArray) expanded_deps = NULL;
+  g_autoptr (GError) error = NULL;
+
+  /* Only the MBS can do "all active existing streams" expansion */
+
+  dep = modulemd_dependencies_new ();
+
+  modulemd_dependencies_set_empty_buildtime_dependencies_for_module (
+    dep, "buildtime_no_deps");
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
+  g_assert_error (error, MODULEMD_ERROR, MMD_ERROR_UPGRADE);
+  g_assert_null (expanded_deps);
+
+  g_clear_error (&error);
+  g_clear_object (&dep);
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+
+  dep = modulemd_dependencies_new ();
+
+  modulemd_dependencies_set_empty_runtime_dependencies_for_module (
+    dep, "runtime_no_deps");
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
+  g_assert_error (error, MODULEMD_ERROR, MMD_ERROR_UPGRADE);
+  g_assert_null (expanded_deps);
+
+  g_clear_error (&error);
+  g_clear_object (&dep);
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+}
+
+static void
+module_stream_test_stream_deps_expansion_v2_to_v3_exclusions (void)
+{
+  g_autoptr (ModulemdDependencies) dep = NULL;
+  g_autoptr (GPtrArray) expanded_deps = NULL;
+  g_autoptr (GError) error = NULL;
+
+  /* Only the MBS can do expansion with stream exclusions */
+
+  dep = modulemd_dependencies_new ();
+
+  modulemd_dependencies_add_buildtime_stream (dep, "platform", "-f27");
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
+  g_assert_error (error, MODULEMD_ERROR, MMD_ERROR_UPGRADE);
+  g_assert_null (expanded_deps);
+
+  g_clear_error (&error);
+  g_clear_object (&dep);
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+
+  dep = modulemd_dependencies_new ();
+
+  modulemd_dependencies_add_runtime_stream (dep, "platform", "-f27");
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
+  g_assert_error (error, MODULEMD_ERROR, MMD_ERROR_UPGRADE);
+  g_assert_null (expanded_deps);
+
+  g_clear_error (&error);
+  g_clear_object (&dep);
   g_clear_pointer (&expanded_deps, g_ptr_array_unref);
 }
 
@@ -4863,6 +4930,14 @@ main (int argc, char *argv[])
 
   g_test_add_func ("/modulemd/v2/modulestream/stream_expansion_v2_to_v3",
                    module_stream_test_stream_deps_expansion_v2_to_v3);
+
+  g_test_add_func (
+    "/modulemd/v2/modulestream/stream_expansion_v2_to_v3/bad/no_streams",
+    module_stream_test_stream_deps_expansion_v2_to_v3_no_streams);
+
+  g_test_add_func (
+    "/modulemd/v2/modulestream/stream_expansion_v2_to_v3/bad/exclusions",
+    module_stream_test_stream_deps_expansion_v2_to_v3_exclusions);
 
   g_test_add_func ("/modulemd/v2/modulestream/v1/rpm_artifacts",
                    module_stream_v1_test_rpm_artifacts);
