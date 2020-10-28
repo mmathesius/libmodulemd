@@ -742,8 +742,10 @@ stream_expansion_helper (ModulemdDependencies *deps,
           g_set_error (error,
                        MODULEMD_ERROR,
                        MMD_ERROR_UPGRADE,
-                       "Cannot expand module %s dependency %s for all active existing streams.",
-                       which, module);
+                       "Cannot expand module %s dependency %s for all active "
+                       "existing streams.",
+                       which,
+                       module);
           return FALSE;
         }
 
@@ -753,16 +755,20 @@ stream_expansion_helper (ModulemdDependencies *deps,
       for (guint j = 0; j < g_strv_length (streams); j++)
         {
           stream = streams[j];
-          g_debug (
-            "Expansion: looking at %s stream dependency %s:%s", which, module, stream);
+          g_debug ("Expansion: looking at %s stream dependency %s:%s",
+                   which,
+                   module,
+                   stream);
 
           if (stream[0] == '-')
             {
               g_set_error (error,
                            MODULEMD_ERROR,
                            MMD_ERROR_UPGRADE,
-                           "Cannot expand module %s dependency %s using stream exclusion (%s).",
-                           which, module,
+                           "Cannot expand module %s dependency %s using "
+                           "stream exclusion (%s).",
+                           which,
+                           module,
                            stream);
               return FALSE;
             }

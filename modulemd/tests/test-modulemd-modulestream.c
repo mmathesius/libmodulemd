@@ -813,6 +813,7 @@ module_stream_test_upgrade_v1_to_v3 (void)
 static void
 module_stream_test_stream_deps_expansion_v2_to_v3 (void)
 {
+  gboolean ret;
   g_autoptr (ModulemdDependencies) dep = NULL;
   g_autoptr (ModulemdBuildConfig) ex_dep = NULL;
   g_autoptr (GPtrArray) expanded_deps = NULL;
@@ -849,8 +850,9 @@ module_stream_test_stream_deps_expansion_v2_to_v3 (void)
       g_assert_true (MODULEMD_IS_BUILD_CONFIG (ex_dep));
 
       g_assert_true (mmd_emitter_start_document (&emitter, &error));
-      g_assert_true (
-        modulemd_build_config_emit_yaml (ex_dep, &emitter, &error));
+      ret = modulemd_build_config_emit_yaml (ex_dep, &emitter, &error);
+      g_assert_no_error (error);
+      g_assert_true (ret);
       g_assert_true (mmd_emitter_end_document (&emitter, &error));
     }
   g_assert_true (mmd_emitter_end_stream (&emitter, &error));
