@@ -933,6 +933,67 @@ module_stream_test_stream_deps_expansion_v2_to_v3_exclusions (void)
   g_clear_pointer (&expanded_deps, g_ptr_array_unref);
 }
 
+static void
+module_stream_test_stream_deps_expansion_v2_to_v3_no_platform (void)
+{
+  g_autoptr (ModulemdDependencies) dep = NULL;
+  g_autoptr (GPtrArray) expanded_deps = NULL;
+  g_autoptr (GError) error = NULL;
+
+  /* Dependencies must have either a buildtime or runtime platform to be */
+  /* expanded */
+
+  dep = modulemd_dependencies_new ();
+
+  modulemd_dependencies_add_buildtime_stream (dep, "foo", "A");
+  modulemd_dependencies_add_buildtime_stream (dep, "foo", "B");
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
+  g_assert_error (error, MODULEMD_ERROR, MMD_ERROR_UPGRADE);
+  g_assert_null (expanded_deps);
+
+  g_clear_error (&error);
+  g_clear_object (&dep);
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+
+  dep = modulemd_dependencies_new ();
+
+  modulemd_dependencies_add_runtime_stream (dep, "bar", "C");
+  modulemd_dependencies_add_runtime_stream (dep, "bar", "D");
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
+  g_assert_error (error, MODULEMD_ERROR, MMD_ERROR_UPGRADE);
+  g_assert_null (expanded_deps);
+
+  g_clear_error (&error);
+  g_clear_object (&dep);
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+}
+
+static void
+module_stream_test_stream_deps_expansion_v2_to_v3_conflicting_platforms (void)
+{
+  g_autoptr (ModulemdDependencies) dep = NULL;
+  g_autoptr (GPtrArray) expanded_deps = NULL;
+  g_autoptr (GError) error = NULL;
+
+  /* Dependencies can't be expanded if they have only conflicting buildtime */
+  /* and runtime platforms */
+
+  dep = modulemd_dependencies_new ();
+
+  modulemd_dependencies_add_buildtime_stream (dep, "platform", "f32");
+  modulemd_dependencies_add_runtime_stream (dep, "platform", "f33");
+
+  expanded_deps = modulemd_module_stream_expand_v2_to_v3_deps (dep, &error);
+  g_assert_error (error, MODULEMD_ERROR, MMD_ERROR_UPGRADE);
+  g_assert_null (expanded_deps);
+
+  g_clear_error (&error);
+  g_clear_object (&dep);
+  g_clear_pointer (&expanded_deps, g_ptr_array_unref);
+}
+
 
 static void
 module_stream_test_v2_yaml (void)
@@ -4942,6 +5003,15 @@ main (int argc, char *argv[])
   g_test_add_func (
     "/modulemd/v2/modulestream/stream_expansion_v2_to_v3/bad/exclusions",
     module_stream_test_stream_deps_expansion_v2_to_v3_exclusions);
+
+  g_test_add_func (
+    "/modulemd/v2/modulestream/stream_expansion_v2_to_v3/bad/no_platform",
+    module_stream_test_stream_deps_expansion_v2_to_v3_no_platform);
+
+  g_test_add_func (
+    "/modulemd/v2/modulestream/stream_expansion_v2_to_v3/bad/"
+    "conflicting_platforms",
+    module_stream_test_stream_deps_expansion_v2_to_v3_conflicting_platforms);
 
   g_test_add_func ("/modulemd/v2/modulestream/v1/rpm_artifacts",
                    module_stream_v1_test_rpm_artifacts);
