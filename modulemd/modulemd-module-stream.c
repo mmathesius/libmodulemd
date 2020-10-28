@@ -704,12 +704,12 @@ stream_expansion_helper (ModulemdDependencies *deps,
   g_auto (GStrv) streams = NULL;
   gchar *module;
   gchar *stream;
+  const gchar *which;
   ModulemdBuildConfig *new_dep = NULL;
-
-  g_debug ("stream_expansion_helper called");
 
   if (buildtime)
     {
+      which = "buildtime";
       dependencies_get_streams_as_strv =
         &modulemd_dependencies_get_buildtime_streams_as_strv;
       build_config_add_requirement =
@@ -717,11 +717,14 @@ stream_expansion_helper (ModulemdDependencies *deps,
     }
   else
     {
+      which = "runtime";
       dependencies_get_streams_as_strv =
         &modulemd_dependencies_get_runtime_streams_as_strv;
       build_config_add_requirement =
         &modulemd_build_config_add_runtime_requirement;
     }
+
+  g_debug ("stream_expansion_helper (%s) called", which);
 
   /* for each module... */
   for (guint i = 0; i < g_strv_length (module_list); i++)
@@ -729,7 +732,8 @@ stream_expansion_helper (ModulemdDependencies *deps,
       module = module_list[i];
       streams = (*dependencies_get_streams_as_strv) (deps, module);
 
-      g_debug ("Expansion: module dependency %s has %d streams",
+      g_debug ("Expansion: module %s dependency %s has %d streams",
+               which,
                module,
                g_strv_length (streams));
 
@@ -738,9 +742,8 @@ stream_expansion_helper (ModulemdDependencies *deps,
           g_set_error (error,
                        MODULEMD_ERROR,
                        MMD_ERROR_UPGRADE,
-                       "Cannot expand module dependency %s for all active "
-                       "existing streams.",
-                       module);
+                       "Cannot expand module %s dependency %s for all active existing streams.",
+                       which, module);
           return FALSE;
         }
 
@@ -751,16 +754,15 @@ stream_expansion_helper (ModulemdDependencies *deps,
         {
           stream = streams[j];
           g_debug (
-            "Expansion: looking at stream dependency %s:%s", module, stream);
+            "Expansion: looking at %s stream dependency %s:%s", which, module, stream);
 
           if (stream[0] == '-')
             {
               g_set_error (error,
                            MODULEMD_ERROR,
                            MMD_ERROR_UPGRADE,
-                           "Cannot expand module dependency %s using stream "
-                           "exclusion (%s).",
-                           module,
+                           "Cannot expand module %s dependency %s using stream exclusion (%s).",
+                           which, module,
                            stream);
               return FALSE;
             }
