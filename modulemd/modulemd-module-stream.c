@@ -677,21 +677,25 @@ modulemd_module_stream_upgrade_v1_to_v2 (ModulemdModuleStream *from)
  * stream_expansion_helper:
  * @deps: (in): A pointer to a #ModulemdDependencies object that is currently
  * being stream expanded.
- * @buildtime: (in): A #gboolean indicating if the helper is expanding buildtime
- * dependencies (TRUE) or runtime dependencies (FALSE).
+ * @is_buildtime: (in): A #gboolean indicating if the helper is expanding
+ * buildtime dependencies (TRUE) or runtime dependencies (FALSE).
  * @module_list: A #GStrv list of the buildtime/runtime module names belonging
  * to @deps.
- * @expanded_deps: A pointer to a pointer to a #GPtrArray of pointers to
- * #ModulemdBuildConfig objects that is the current set of stream expanded
+ * @expanded_deps: (inout): A pointer to a pointer to a #GPtrArray of pointers
+ * to #ModulemdBuildConfig objects that is the current set of stream expanded
  * dependencies.
  * @error: (out): A #GError that will return the reason for an expansion error.
+ *
+ * Calculates the Cartesian product of the the module:stream dependencies in
+ * @deps and the set of previously calculated module:stream dependencies in
+ * @expanded_deps. The product is stored back to @expanded_deps.
  *
  * Returns: TRUE if expansion succeeded, FALSE otherwise.
  */
 
 static gboolean
 stream_expansion_helper (ModulemdDependencies *deps,
-                         gboolean buildtime,
+                         gboolean is_buildtime,
                          GStrv module_list,
                          GPtrArray **expanded_deps,
                          GError **error)
@@ -707,7 +711,7 @@ stream_expansion_helper (ModulemdDependencies *deps,
   const gchar *which;
   ModulemdBuildConfig *new_dep = NULL;
 
-  if (buildtime)
+  if (is_buildtime)
     {
       which = "buildtime";
       dependencies_get_streams_as_strv =
@@ -724,7 +728,7 @@ stream_expansion_helper (ModulemdDependencies *deps,
         &modulemd_build_config_add_runtime_requirement;
     }
 
-  g_debug ("stream_expansion_helper (%s) called", which);
+  g_debug ("Expansion: stream_expansion_helper (%s) called", which);
 
   /* for each module... */
   for (guint i = 0; i < g_strv_length (module_list); i++)
@@ -818,22 +822,35 @@ stream_expansion_helper (ModulemdDependencies *deps,
   return TRUE;
 }
 
-#if 0
+/*
+ * stream_expansion_resolve_platform:
+ * @expanded_deps: (inout): A pointer to a pointer to a #GPtrArray of pointers
+ * to #ModulemdBuildConfig objects that is the set of stream expanded
+ * dependencies.
+ * @error: (out): A #GError that will return the reason for an expansion error.
+ *
+ * Goes through the stream expanded dependencies.
+ *
+ * Calculates the Cartesian product of the the module:stream dependencies in
+ * @deps and the set of previously calculated module:stream dependencies in
+ * @expanded_deps. The product is stored back to @expanded_deps.
+ *
+ * Returns: TRUE if expansion succeeded, FALSE otherwise.
+ */
 static gboolean
-stream_expansion_set_platform (GPtrArray **expanded_deps,
-                               GError **error)
+stream_expansion_resolve_platform (GPtrArray **expanded_deps, GError **error)
 {
   g_autoptr (GPtrArray) new_expanded_deps = NULL;
   g_autoptr (ModulemdBuildConfig) dep = NULL;
   ModulemdBuildConfig *new_dep = NULL;
+  const gchar *platform;
+  const gchar *build_platform;
+  const gchar *run_platform;
 
-  g_debug ("stream_expansion_set_platform called with %d deps", (*expanded_deps)->len);
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  if ((*expanded_deps)->len == 0)
-    {
-      g_debug ("Expansion: nothing to do");
-      return TRUE;
-    }
+  g_debug ("Expansion: stream_expansion_resolve_platform called with %d deps",
+           (*expanded_deps)->len);
 
   new_expanded_deps = g_ptr_array_new ();
 
@@ -842,37 +859,102 @@ stream_expansion_set_platform (GPtrArray **expanded_deps,
     {
       dep = g_ptr_array_index (*expanded_deps, k);
 
-      platform = modulemd_build_config_get_platform(dep);
-      if (!platform)
+      build_platform = modulemd_build_config_get_buildtime_requirement_stream (
+        dep, "platform");
+      run_platform =
+        modulemd_build_config_get_runtime_requirement_stream (dep, "platform");
+
+      /* safely drop any expanded dependencies that have a platform mis-match */
+      if (build_platform && run_platform &&
+          g_strcmp0 (build_platform, run_platform) != 0)
         {
+          g_debug (
+            "Expansion: dropping dep with mis-matched buildtime (%s) and "
+            "runtime (%s) platforms",
+            build_platform,
+            run_platform);
+          continue;
         }
 
+      platform = NULL;
 
-      /* Make a copy of the existing expanded dependency and add this module and stream */
+      if (build_platform)
+        {
+          platform = build_platform;
+        }
+      else if (run_platform)
+        {
+          platform = run_platform;
+        }
+      else
+        {
+          /* this should have previously flagged a fatal error */
+          g_set_error (error,
+                       MODULEMD_ERROR,
+                       MMD_ERROR_UPGRADE,
+                       "Internal error: platform missing.");
+          return FALSE;
+        }
+
+      /*
+       * - make a copy of the existing dependency
+       * - set the platform property
+       * - drop any "platform" module from the buildtime/runtime dependencies
+       * - add dep to the new list
+       */
       new_dep = modulemd_build_config_copy (dep);
-      g_ptr_array_add (new_expanded_deps,
-                       g_steal_pointer (&new_dep));
+      modulemd_build_config_set_platform (new_dep, platform);
+      if (build_platform)
+        {
+          modulemd_build_config_remove_buildtime_requirement (new_dep,
+                                                              "platform");
+        }
+      if (run_platform)
+        {
+          modulemd_build_config_remove_runtime_requirement (new_dep,
+                                                            "platform");
+        }
+      g_ptr_array_add (new_expanded_deps, g_steal_pointer (&new_dep));
     }
 
-  if (new_expanded_deps->len > 0)
+  if (new_expanded_deps->len == 0)
     {
-      g_debug (
-        "Expansion: replacing old set of %d deps with new set of %d deps",
-        (*expanded_deps)->len,
-        new_expanded_deps->len);
-      g_clear_pointer (expanded_deps, g_ptr_array_unref);
-      *expanded_deps = new_expanded_deps;
-      new_expanded_deps = NULL;
+      g_set_error_literal (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "Stream v2 dependencies expanded to nothing.");
+      return FALSE;
     }
+
+  g_debug ("Expansion: replacing old set of %d deps with new set of %d deps",
+           (*expanded_deps)->len,
+           new_expanded_deps->len);
+  g_clear_pointer (expanded_deps, g_ptr_array_unref);
+  *expanded_deps = new_expanded_deps;
+  new_expanded_deps = NULL;
 
   return TRUE;
 }
-#endif
 
 /* TODO: make this fully work */
 /* - remove dups */
-/* - remove platform conflicts */
-/* - set platform */
+
+/*
+ * modulemd_module_stream_expand_v2_to_v3_deps:
+ * @deps: (in): A pointer to a #ModulemdDependencies object that is currently
+ * @error: (out): A #GError that will return the reason for an expansion error.
+ *
+ * Stream V2 #ModulemdDependencies can have multiple streams specified per
+ * dependent buildtime and runtime modules. Stream V3 dependencies can only
+ * have a single stream per module. Additionally, Stream V2 dependencies treated
+ * "platform" the same as any other module dependency, while Stream V3
+ * dependencies have "platform" as a seperate property. This function expands
+ * a Stream V2 dependencies into the different possibly combinations and
+ * explcitly sets the "platform".
+ *
+ * Returns: A #GPtrArray of #ModulemdBuildConfig objects containing the stream
+ * expanded version of @deps.
+ */
 GPtrArray *
 modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
                                              GError **error)
@@ -905,9 +987,18 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
     }
 
 
+  if (!g_strv_contains ((const gchar *const *)buildtime_modules, "platform") &&
+      !g_strv_contains ((const gchar *const *)runtime_modules, "platform"))
+    {
+      g_set_error_literal (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "Stream v2 has no platform dependencies.");
+      return NULL;
+    }
+
   expanded_deps = g_ptr_array_new ();
 
-  g_debug ("Expansion: calling stream_expansion_helper for buildtime modules");
   if (!stream_expansion_helper (
         deps, TRUE, buildtime_modules, &expanded_deps, &nested_error))
     {
@@ -917,13 +1008,21 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
       return NULL;
     }
 
-  g_debug ("Expansion: calling stream_expansion_helper for runtime modules");
   if (!stream_expansion_helper (
         deps, FALSE, runtime_modules, &expanded_deps, &nested_error))
     {
       g_propagate_prefixed_error (error,
                                   g_steal_pointer (&nested_error),
                                   "Unable to expand runtime dependencies: ");
+      return NULL;
+    }
+
+  if (!stream_expansion_resolve_platform (&expanded_deps, &nested_error))
+    {
+      g_propagate_prefixed_error (
+        error,
+        g_steal_pointer (&nested_error),
+        "Unable to resolve platform for expanded dependencies: ");
       return NULL;
     }
 
