@@ -675,35 +675,31 @@ modulemd_module_stream_upgrade_v1_to_v2 (ModulemdModuleStream *from)
 
 /*
  * stream_expansion_helper:
- * @deps: A pointer to a #ModulemdDependencies object that is currently being
- * stream expanded.
+ * @deps: (in): A pointer to a #ModulemdDependencies object that is currently
+ * being stream expanded.
+ * @buildtime: (in): A #gboolean indicating if the helper is expanding buildtime
+ * dependencies (TRUE) or runtime dependencies (FALSE).
+ * @module_list: A #GStrv list of the buildtime/runtime module names belonging
+ * to @deps.
  * @expanded_deps: A pointer to a pointer to a #GPtrArray of pointers to
  * #ModulemdBuildConfig objects that is the current set of stream expanded
  * dependencies.
- * @module_list: A #GStrv list of the buildtime/runtime module names belonging
- * to @deps.
  * @error: (out): A #GError that will return the reason for an expansion error.
- * @dep_get_streams_as_strv_func:
- * modulemd_dependencies_get_buildtime_streams_as_strv() or
- * modulemd_dependencies_get_runtime_streams_as_strv()
- * @cfg_add_req_func:
- *   modulemd_build_config_add_buildtime_requirement() or
- *   modulemd_build_config_add_runtime_requirement()
  *
  * Returns: TRUE if expansion succeeded, FALSE otherwise.
  */
 
 static gboolean
 stream_expansion_helper (ModulemdDependencies *deps,
-                         GPtrArray **expanded_deps,
+                         gboolean buildtime,
                          GStrv module_list,
-                         GError **error,
-                         GStrv (*dep_get_streams_as_strv_func) (
-                           ModulemdDependencies *, const gchar *),
-                         void (*cfg_add_req_func) (ModulemdBuildConfig *,
-                                                   const gchar *,
-                                                   const gchar *))
+                         GPtrArray **expanded_deps,
+                         GError **error)
 {
+  GStrv (*dependencies_get_streams_as_strv) (ModulemdDependencies *,
+                                             const gchar *) = NULL;
+  void (*build_config_add_requirement) (
+    ModulemdBuildConfig *, const gchar *, const gchar *) = NULL;
   g_autoptr (GPtrArray) new_expanded_deps = NULL;
   g_auto (GStrv) streams = NULL;
   gchar *module;
@@ -712,11 +708,26 @@ stream_expansion_helper (ModulemdDependencies *deps,
 
   g_debug ("stream_expansion_helper called");
 
+  if (buildtime)
+    {
+      dependencies_get_streams_as_strv =
+        &modulemd_dependencies_get_buildtime_streams_as_strv;
+      build_config_add_requirement =
+        &modulemd_build_config_add_buildtime_requirement;
+    }
+  else
+    {
+      dependencies_get_streams_as_strv =
+        &modulemd_dependencies_get_runtime_streams_as_strv;
+      build_config_add_requirement =
+        &modulemd_build_config_add_runtime_requirement;
+    }
+
   /* for each module... */
   for (guint i = 0; i < g_strv_length (module_list); i++)
     {
       module = module_list[i];
-      streams = (*dep_get_streams_as_strv_func) (deps, module);
+      streams = (*dependencies_get_streams_as_strv) (deps, module);
 
       g_debug ("Expansion: module dependency %s has %d streams",
                module,
@@ -760,7 +771,7 @@ stream_expansion_helper (ModulemdDependencies *deps,
               g_debug ("Expansion: creating new dependency");
 
               new_dep = modulemd_build_config_new ();
-              (*cfg_add_req_func) (new_dep, module, stream);
+              (*build_config_add_requirement) (new_dep, module, stream);
               g_ptr_array_add (new_expanded_deps, new_dep);
             }
           /* otherwise, expand on what we already have */
@@ -773,7 +784,7 @@ stream_expansion_helper (ModulemdDependencies *deps,
                   /* Make a copy of the existing expanded dependency and add this module and stream */
                   new_dep = modulemd_build_config_copy (
                     g_ptr_array_index (*expanded_deps, k));
-                  (*cfg_add_req_func) (new_dep, module, stream);
+                  (*build_config_add_requirement) (new_dep, module, stream);
                   g_ptr_array_add (new_expanded_deps,
                                    g_steal_pointer (&new_dep));
                 }
@@ -839,12 +850,7 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
 
   g_debug ("Expansion: calling stream_expansion_helper for buildtime modules");
   if (!stream_expansion_helper (
-        deps,
-        &expanded_deps,
-        buildtime_modules,
-        &nested_error,
-        &modulemd_dependencies_get_buildtime_streams_as_strv,
-        &modulemd_build_config_add_buildtime_requirement))
+        deps, TRUE, buildtime_modules, &expanded_deps, &nested_error))
     {
       g_propagate_prefixed_error (error,
                                   g_steal_pointer (&nested_error),
@@ -854,12 +860,7 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdDependencies *deps,
 
   g_debug ("Expansion: calling stream_expansion_helper for runtime modules");
   if (!stream_expansion_helper (
-        deps,
-        &expanded_deps,
-        runtime_modules,
-        &nested_error,
-        &modulemd_dependencies_get_runtime_streams_as_strv,
-        &modulemd_build_config_add_runtime_requirement))
+        deps, FALSE, runtime_modules, &expanded_deps, &nested_error))
     {
       g_propagate_prefixed_error (error,
                                   g_steal_pointer (&nested_error),
