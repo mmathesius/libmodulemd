@@ -744,11 +744,11 @@ stream_expansion_helper (ModulemdDependencies *deps,
   void (*build_config_add_requirement) (
     ModulemdBuildConfig *, const gchar *, const gchar *) = NULL;
   g_autoptr (GPtrArray) new_expanded_deps = NULL;
+  g_autoptr (ModulemdBuildConfig) new_dep = NULL;
   g_auto (GStrv) streams = NULL;
   gchar *module;
   gchar *stream;
   const gchar *which;
-  ModulemdBuildConfig *new_dep = NULL;
 
   if (is_buildtime)
     {
@@ -823,7 +823,7 @@ stream_expansion_helper (ModulemdDependencies *deps,
 
               new_dep = modulemd_build_config_new ();
               (*build_config_add_requirement) (new_dep, module, stream);
-              g_ptr_array_add (new_expanded_deps, new_dep);
+              g_ptr_array_add (new_expanded_deps, g_steal_pointer (&new_dep));
             }
           /* otherwise, expand on what we already have */
           else
@@ -852,8 +852,7 @@ stream_expansion_helper (ModulemdDependencies *deps,
             (*expanded_deps)->len,
             new_expanded_deps->len);
           g_clear_pointer (expanded_deps, g_ptr_array_unref);
-          *expanded_deps = new_expanded_deps;
-          new_expanded_deps = NULL;
+          *expanded_deps = g_steal_pointer (&new_expanded_deps);
         }
 
     } /* for each module... */
@@ -880,8 +879,8 @@ static gboolean
 stream_expansion_resolve_platform (GPtrArray **expanded_deps, GError **error)
 {
   g_autoptr (GPtrArray) new_expanded_deps = NULL;
+  g_autoptr (ModulemdBuildConfig) new_dep = NULL;
   ModulemdBuildConfig *dep = NULL;
-  ModulemdBuildConfig *new_dep = NULL;
   const gchar *platform;
   const gchar *build_platform;
   const gchar *run_platform;
@@ -969,8 +968,7 @@ stream_expansion_resolve_platform (GPtrArray **expanded_deps, GError **error)
            (*expanded_deps)->len,
            new_expanded_deps->len);
   g_clear_pointer (expanded_deps, g_ptr_array_unref);
-  *expanded_deps = new_expanded_deps;
-  new_expanded_deps = NULL;
+  *expanded_deps = g_steal_pointer (&new_expanded_deps);
 
   return TRUE;
 }
@@ -992,7 +990,6 @@ stream_expansion_dedup (GPtrArray **expanded_deps, GError **error)
 {
   g_autoptr (GPtrArray) deduped_expanded_deps = NULL;
   ModulemdBuildConfig *dep = NULL;
-  ModulemdBuildConfig *new_dep = NULL;
   gboolean duplicate;
 
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -1027,8 +1024,8 @@ stream_expansion_dedup (GPtrArray **expanded_deps, GError **error)
 
       if (!duplicate)
         {
-          new_dep = modulemd_build_config_copy (dep);
-          g_ptr_array_add (deduped_expanded_deps, g_steal_pointer (&new_dep));
+          g_ptr_array_add (deduped_expanded_deps,
+                           modulemd_build_config_copy (dep));
         }
     }
 
@@ -1045,8 +1042,7 @@ stream_expansion_dedup (GPtrArray **expanded_deps, GError **error)
            (*expanded_deps)->len,
            deduped_expanded_deps->len);
   g_clear_pointer (expanded_deps, g_ptr_array_unref);
-  *expanded_deps = deduped_expanded_deps;
-  deduped_expanded_deps = NULL;
+  *expanded_deps = g_steal_pointer (&deduped_expanded_deps);
 
   return TRUE;
 }
