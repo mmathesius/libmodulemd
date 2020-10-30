@@ -1159,7 +1159,7 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdModuleStreamV2 *v2_stream,
           return NULL;
         }
 
-      expanded_deps = g_ptr_array_new ();
+      expanded_deps = g_ptr_array_new_with_free_func (g_object_unref);
 
       if (!stream_expansion_helper (
             v2_deps, TRUE, buildtime_modules, &expanded_deps, &nested_error))
