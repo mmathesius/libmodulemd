@@ -18,7 +18,6 @@
 #include <glib/gstdio.h>
 
 #include "modulemd-deprecated.h"
-#include "modulemd-module-index.h"
 
 G_BEGIN_DECLS
 
@@ -39,6 +38,9 @@ G_BEGIN_DECLS
  * Since: 2.10
  */
 #define MMD_MAXCONTEXTLEN 10
+
+/* Forward declarations */
+typedef struct _ModulemdModuleIndex ModulemdModuleIndex;
 
 /**
  * ModulemdModuleStreamVersionEnum:
