@@ -399,15 +399,17 @@ modulemd_module_add_stream (ModulemdModule *self,
           g_propagate_error (error, g_steal_pointer (&nested_error));
           return MD_MODULESTREAM_VERSION_ERROR;
         }
+
+      new_mdversion = index_mdversion;
     }
   else
     {
       /* Otherwise, add the current stream to a new temporary module. */
       newmodule = modulemd_module_new (module_name);
       g_ptr_array_add (newmodule->streams, g_object_ref (stream));
-    }
 
-  new_mdversion = index_mdversion;
+      new_mdversion = modulemd_module_stream_get_mdversion (stream);
+    }
 
   /* loop through all streams in the index of (possibly upgraded) modules */
   allstreams = modulemd_module_get_all_streams (newmodule);
