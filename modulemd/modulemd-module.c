@@ -282,9 +282,12 @@ modulemd_module_add_stream (ModulemdModule *self,
   ModulemdTranslation *translation = NULL;
   ModulemdObsoletes *obsoletes = NULL;
   ModulemdModuleStream *newstream = NULL;
+  g_autoptr (ModulemdModule) newmodule = NULL;
   g_autoptr (GError) nested_error = NULL;
+  ModulemdModuleStreamVersionEnum new_mdversion;
   const gchar *module_name = NULL;
   const gchar *stream_name = NULL;
+  GPtrArray *allstreams;
 
   g_return_val_if_fail (MODULEMD_IS_MODULE (self),
                         MD_MODULESTREAM_VERSION_ERROR);
@@ -389,9 +392,9 @@ modulemd_module_add_stream (ModulemdModule *self,
        * We only call this if the mdversion is definitely lower, because the
        * upgrade() routine is not designed to handle downgrades.
        */
-      newstream = modulemd_module_stream_upgrade (
+      newmodule = modulemd_module_stream_upgrade_ext (
         stream, index_mdversion, &nested_error);
-      if (!newstream)
+      if (!newmodule)
         {
           g_propagate_error (error, g_steal_pointer (&nested_error));
           return MD_MODULESTREAM_VERSION_ERROR;
@@ -399,25 +402,47 @@ modulemd_module_add_stream (ModulemdModule *self,
     }
   else
     {
-      newstream = modulemd_module_stream_copy (stream, NULL, NULL);
+      /* Otherwise, add a copy of the current stream to a temporary index. */
+      newmodule = modulemd_module_new (module_name);
+      g_ptr_array_add (newmodule->streams,
+                       modulemd_module_stream_copy (stream, NULL, NULL));
     }
 
-  g_ptr_array_add (self->streams, newstream);
+  new_mdversion = index_mdversion;
 
-  translation = g_hash_table_lookup (
-    self->translations, modulemd_module_stream_get_stream_name (stream));
-  if (translation != NULL)
+  /* loop through all streams in the index of (possibly upgraded) modules */
+  allstreams = modulemd_module_get_all_streams (newmodule);
+  for (guint i = 0; i < allstreams->len; i++)
     {
-      modulemd_module_stream_associate_translation (newstream, translation);
+      newstream = g_ptr_array_index (allstreams, i);
+
+      g_ptr_array_add (self->streams, newstream);
+
+      translation = g_hash_table_lookup (
+        self->translations, modulemd_module_stream_get_stream_name (stream));
+      if (translation != NULL)
+        {
+          modulemd_module_stream_associate_translation (newstream,
+                                                        translation);
+        }
+
+      if (obsoletes != NULL)
+        {
+          if (new_mdversion == MD_MODULESTREAM_VERSION_TWO)
+            {
+              modulemd_module_stream_v2_associate_obsoletes (
+                (ModulemdModuleStreamV2 *)newstream, obsoletes);
+            }
+          else
+            {
+              modulemd_module_stream_v3_associate_obsoletes (
+                (ModulemdModuleStreamV3 *)newstream, obsoletes);
+            }
+        }
     }
 
-  if (obsoletes != NULL)
-    {
-      modulemd_module_stream_v2_associate_obsoletes (
-        (ModulemdModuleStreamV2 *)newstream, obsoletes);
-    }
-
-  return modulemd_module_stream_get_mdversion (newstream);
+  g_clear_object (&newmodule);
+  return new_mdversion;
 }
 
 
@@ -928,6 +953,8 @@ modulemd_module_upgrade_streams (ModulemdModule *self,
   ModulemdModuleStreamVersionEnum current_mdversion;
   g_autoptr (ModulemdModuleStream) modulestream = NULL;
   g_autoptr (ModulemdModuleStream) upgraded_stream = NULL;
+  g_autoptr (ModulemdModule) upgraded_module = NULL;
+  GPtrArray *upgraded_streams = NULL;
   g_autofree gchar *nsvca = NULL;
   g_autoptr (GError) nested_error = NULL;
 
@@ -959,9 +986,9 @@ modulemd_module_upgrade_streams (ModulemdModule *self,
         }
       else
         {
-          upgraded_stream = modulemd_module_stream_upgrade (
+          upgraded_module = modulemd_module_stream_upgrade_ext (
             modulestream, mdversion, &nested_error);
-          if (!upgraded_stream)
+          if (!upgraded_module)
             {
               g_propagate_prefixed_error (error,
                                           g_steal_pointer (&nested_error),
@@ -969,7 +996,18 @@ modulemd_module_upgrade_streams (ModulemdModule *self,
                                           nsvca);
               return FALSE;
             }
-          g_ptr_array_add (new_streams, g_steal_pointer (&upgraded_stream));
+
+          /* loop through all upgraded streams */
+          upgraded_streams = modulemd_module_get_all_streams (upgraded_module);
+          for (guint i = 0; i < upgraded_streams->len; i++)
+            {
+              upgraded_stream = g_ptr_array_index (upgraded_streams, i);
+
+              g_ptr_array_add (new_streams,
+                               g_steal_pointer (&upgraded_stream));
+            }
+
+          g_clear_object (&upgraded_module);
         }
 
       g_clear_pointer (&nsvca, g_free);

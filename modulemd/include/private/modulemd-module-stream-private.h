@@ -422,12 +422,12 @@ modulemd_module_stream_expand_v2_to_v3_deps (ModulemdModuleStreamV2 *v2_stream,
  *
  * TODO: document this
  *
- * Returns: (transfer full): A #ModulemdModuleIndex containing #StreamV3
+ * Returns: (transfer full): A #ModulemdModule containing #StreamV3
  * objects.
  *
  * Since: 2.10
  */
-ModulemdModuleIndex *
+ModulemdModule *
 modulemd_module_stream_upgrade_v2_to_v3_ext (ModulemdModuleStreamV2 *from,
                                              GError **error);
 
