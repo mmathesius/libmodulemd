@@ -1576,38 +1576,30 @@ static ModulemdModuleStream *
 modulemd_module_stream_upgrade_v2_to_v3 (ModulemdModuleStreamV2 *from,
                                          GError **error)
 {
-  g_autoptr (ModulemdModuleIndex) index = NULL;
+  g_autoptr (ModulemdModule) upgraded_module = NULL;
   g_auto (GStrv) module_names = NULL;
   g_autoptr (ModulemdModule) module = NULL;
   g_autoptr (GError) nested_error = NULL;
   GPtrArray *module_streams = NULL;
 
-  index = modulemd_module_stream_upgrade_v2_to_v3_ext (from, &nested_error);
-  if (!index)
+  upgraded_module =
+    modulemd_module_stream_upgrade_v2_to_v3_ext (from, &nested_error);
+  if (!upgraded_module)
     {
       g_propagate_error (error, g_steal_pointer (&nested_error));
       return NULL;
     }
 
-  module_names = modulemd_module_index_get_module_names_as_strv (index);
-  if (!module_names || g_strv_length (module_names) != 1)
-    {
-      g_set_error_literal (error,
-                           MODULEMD_ERROR,
-                           MMD_ERROR_UPGRADE,
-                           "Stream v2 upgrade must return a single module.");
-      return NULL;
-    }
-
-  module = modulemd_module_index_get_module (index, module_names[0]);
-  module_streams = modulemd_module_get_all_streams (module);
+  module_streams = modulemd_module_get_all_streams (upgraded_module);
 
   if (module_streams->len != 1)
     {
-      g_set_error_literal (error,
-                           MODULEMD_ERROR,
-                           MMD_ERROR_UPGRADE,
-                           "Stream v2 upgrade must return a single stream.");
+      g_set_error_literal (
+        error,
+        MODULEMD_ERROR,
+        MMD_ERROR_UPGRADE,
+        "Stream v2 upgrade must contain only single stream when calling "
+        "modulemd_module_stream_upgrade_v2_to_v3().");
       return NULL;
     }
 

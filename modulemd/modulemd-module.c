@@ -402,10 +402,9 @@ modulemd_module_add_stream (ModulemdModule *self,
     }
   else
     {
-      /* Otherwise, add a copy of the current stream to a temporary index. */
+      /* Otherwise, add the current stream to a new temporary module. */
       newmodule = modulemd_module_new (module_name);
-      g_ptr_array_add (newmodule->streams,
-                       modulemd_module_stream_copy (stream, NULL, NULL));
+      g_ptr_array_add (newmodule->streams, stream);
     }
 
   new_mdversion = index_mdversion;
@@ -883,6 +882,8 @@ modulemd_module_add_obsoletes (ModulemdModule *self,
             }
         }
 
+      /* TODO: this needs work if we are going allow automatic stream upgrades to V3 */
+
       if (modulemd_module_stream_get_mdversion (stream) <
           MD_MODULESTREAM_VERSION_TWO)
         {
@@ -1001,7 +1002,7 @@ modulemd_module_upgrade_streams (ModulemdModule *self,
           upgraded_streams = modulemd_module_get_all_streams (upgraded_module);
           for (guint i = 0; i < upgraded_streams->len; i++)
             {
-              upgraded_stream = g_ptr_array_index (upgraded_streams, i);
+              upgraded_stream = g_object_ref (g_ptr_array_index (upgraded_streams, i));
 
               g_ptr_array_add (new_streams,
                                g_steal_pointer (&upgraded_stream));

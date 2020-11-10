@@ -800,12 +800,16 @@ module_stream_test_upgrade_v1_to_v2 (void)
 static void
 module_stream_test_upgrade_v2_to_v3 (void)
 {
-  /* TODO: implement test */
   g_autoptr (ModulemdModuleStream) stream = NULL;
   ModulemdModuleStreamV2 *streamV2 = NULL;
-  g_autoptr (ModulemdModuleIndex) index = NULL;
+  g_autoptr (ModulemdModule) moduleV3 = NULL;
   g_autoptr (GError) error = NULL;
+  GPtrArray *allstreams;
+  ModulemdModuleStream *s = NULL;
   g_autofree gchar *yaml_str = NULL;
+  gboolean ret;
+  MMD_INIT_YAML_EMITTER (emitter);
+  MMD_INIT_YAML_STRING (&emitter, yaml_string);
 
   stream = modulemd_module_stream_read_string (
     "---\n"
@@ -955,20 +959,34 @@ module_stream_test_upgrade_v2_to_v3 (void)
 
   streamV2 = MODULEMD_MODULE_STREAM_V2 (stream);
 
-  index = modulemd_module_stream_upgrade_v2_to_v3_ext (streamV2, &error);
+  moduleV3 = modulemd_module_stream_upgrade_v2_to_v3_ext (streamV2, &error);
   g_assert_no_error (error);
-  g_assert_nonnull (index);
+  g_assert_nonnull (moduleV3);
 
-  yaml_str = modulemd_module_index_dump_to_string (index, &error);
+  allstreams = modulemd_module_get_all_streams (moduleV3);
+  for (guint i = 0; i < allstreams->len; i++)
+    {
+      s = g_ptr_array_index (allstreams, i);
+      g_assert_true (MODULEMD_IS_MODULE_STREAM_V3 (s));
+    }
 
-  g_assert_no_error (error);
+  g_assert_true (mmd_emitter_start_stream (&emitter, &error));
+  for (guint i = 0; i < allstreams->len; i++)
+    {
+      s = g_ptr_array_index (allstreams, i);
 
-  g_assert_nonnull (yaml_str);
-  /* g_assert_cmpstr (yaml_str, ==, ""); */
+      g_assert_true (mmd_emitter_start_document (&emitter, &error));
+      ret = modulemd_module_stream_v3_emit_yaml (MODULEMD_MODULE_STREAM_V3(s), &emitter, &error);
+      g_assert_no_error (error);
+      g_assert_true (ret);
+      g_assert_true (mmd_emitter_end_document (&emitter, &error));
+    }
+  g_assert_true (mmd_emitter_end_stream (&emitter, &error));
+  g_debug ("YAML dump of StreamV2 upgraded to StreamV3:\n%s", yaml_string->str);
 
-  g_debug ("YAML dump of upgraded module index:\n%s", yaml_str);
+  g_clear_object (&moduleV3);
 
-  /* TODO: fix this test to do something useful */
+  /* TODO: update this test to do something useful */
 
   g_clear_pointer (&yaml_str, g_free);
 }
