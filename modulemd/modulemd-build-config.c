@@ -292,6 +292,7 @@ modulemd_build_config_parse_yaml (yaml_parser_t *parser,
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
                                 "buildrequires"))
             {
+              /* TODO: fix reading of buildrequires */
               deptable =
                 modulemd_yaml_parse_string_string_map (parser, &nested_error);
               if (!deptable)
@@ -307,6 +308,7 @@ modulemd_build_config_parse_yaml (yaml_parser_t *parser,
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
                                 "requires"))
             {
+              /* TODO: fix reading of requires */
               deptable =
                 modulemd_yaml_parse_string_string_map (parser, &nested_error);
               if (!deptable)
@@ -386,6 +388,7 @@ modulemd_build_config_emit_yaml (ModulemdBuildConfig *self,
 
   EMIT_KEY_VALUE_IF_SET (emitter, error, "context", self->context);
   EMIT_KEY_VALUE_IF_SET (emitter, error, "platform", self->platform);
+  /* TODO: fix emitting of buildrequires and requires */
   EMIT_HASHTABLE_KEY_VALUES_IF_NON_EMPTY (
     emitter, error, "buildrequires", self->buildrequires);
   EMIT_HASHTABLE_KEY_VALUES_IF_NON_EMPTY (
