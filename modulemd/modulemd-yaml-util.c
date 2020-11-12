@@ -630,6 +630,7 @@ modulemd_yaml_parse_string_string_map (yaml_parser_t *parser, GError **error)
   return g_steal_pointer (&table);
 }
 
+
 GHashTable *
 modulemd_yaml_parse_nested_set (yaml_parser_t *parser, GError **error)
 {
@@ -709,6 +710,52 @@ modulemd_yaml_parse_nested_set (yaml_parser_t *parser, GError **error)
     }
 
   return g_steal_pointer (&t);
+}
+
+gboolean
+modulemd_yaml_emit_nested_set (yaml_emitter_t *emitter,
+                               GHashTable *table,
+                               GError **error)
+{
+  MODULEMD_INIT_TRACE ();
+  int ret;
+  g_autoptr (GError) nested_error = NULL;
+  MMD_INIT_YAML_EVENT (event);
+  g_autoptr (GPtrArray) keys = NULL;
+  GHashTable *dep = NULL;
+  gchar *key = NULL;
+
+  ret = mmd_emitter_start_mapping (
+    emitter, YAML_BLOCK_MAPPING_STYLE, &nested_error);
+  if (!ret)
+    {
+      g_propagate_prefixed_error (
+        error,
+        g_steal_pointer (&nested_error),
+        "Failed to start dependencies nested mapping: ");
+      return FALSE;
+    }
+
+  keys = modulemd_ordered_str_keys (table, modulemd_strcmp_sort);
+  for (gint i = 0; i < keys->len; i++)
+    {
+      key = g_ptr_array_index (keys, i);
+      dep = g_hash_table_lookup (table, key);
+
+      EMIT_STRING_SET_FULL (
+        emitter, error, key, dep, YAML_FLOW_SEQUENCE_STYLE);
+    }
+
+  ret = mmd_emitter_end_mapping (emitter, &nested_error);
+  if (!ret)
+    {
+      g_propagate_prefixed_error (error,
+                                  g_steal_pointer (&nested_error),
+                                  "Failed to end nested mapping");
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 

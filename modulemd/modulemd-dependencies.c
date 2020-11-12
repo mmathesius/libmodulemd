@@ -465,53 +465,6 @@ modulemd_dependencies_parse_yaml (yaml_parser_t *parser,
 }
 
 
-static gboolean
-modulemd_dependencies_emit_yaml_nested_set (GHashTable *table,
-                                            yaml_emitter_t *emitter,
-                                            GError **error)
-{
-  MODULEMD_INIT_TRACE ();
-  int ret;
-  g_autoptr (GError) nested_error = NULL;
-  MMD_INIT_YAML_EVENT (event);
-  g_autoptr (GPtrArray) keys = NULL;
-  GHashTable *dep = NULL;
-  gchar *key = NULL;
-
-  ret = mmd_emitter_start_mapping (
-    emitter, YAML_BLOCK_MAPPING_STYLE, &nested_error);
-  if (!ret)
-    {
-      g_propagate_prefixed_error (
-        error,
-        g_steal_pointer (&nested_error),
-        "Failed to start dependencies nested mapping: ");
-      return FALSE;
-    }
-
-  keys = modulemd_ordered_str_keys (table, modulemd_strcmp_sort);
-  for (gint i = 0; i < keys->len; i++)
-    {
-      key = g_ptr_array_index (keys, i);
-      dep = g_hash_table_lookup (table, key);
-
-      EMIT_STRING_SET_FULL (
-        emitter, error, key, dep, YAML_FLOW_SEQUENCE_STYLE);
-    }
-
-  ret = mmd_emitter_end_mapping (emitter, &nested_error);
-  if (!ret)
-    {
-      g_propagate_prefixed_error (error,
-                                  g_steal_pointer (&nested_error),
-                                  "Failed to end dependencies nested mapping");
-      return FALSE;
-    }
-
-  return TRUE;
-}
-
-
 gboolean
 modulemd_dependencies_emit_yaml (ModulemdDependencies *self,
                                  yaml_emitter_t *emitter,
@@ -545,8 +498,8 @@ modulemd_dependencies_emit_yaml (ModulemdDependencies *self,
           return FALSE;
         }
 
-      ret = modulemd_dependencies_emit_yaml_nested_set (
-        self->buildtime_deps, emitter, &nested_error);
+      ret = modulemd_yaml_emit_nested_set (
+        emitter, self->buildtime_deps, &nested_error);
       if (!ret)
         {
           g_propagate_prefixed_error (
@@ -570,8 +523,8 @@ modulemd_dependencies_emit_yaml (ModulemdDependencies *self,
           return FALSE;
         }
 
-      ret = modulemd_dependencies_emit_yaml_nested_set (
-        self->runtime_deps, emitter, &nested_error);
+      ret = modulemd_yaml_emit_nested_set (
+        emitter, self->runtime_deps, &nested_error);
       if (!ret)
         {
           g_propagate_prefixed_error (
