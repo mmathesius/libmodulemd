@@ -1207,6 +1207,46 @@ modulemd_module_stream_v3_get_runtime_requirement_stream (
 }
 
 
+GStrv
+modulemd_module_stream_v3_get_buildtime_requirement_streams_as_strv (
+  ModulemdModuleStreamV3 *self, const gchar *module_name)
+{
+  char *stream;
+  GPtrArray *stream_list;
+
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
+
+  stream = g_hash_table_lookup (self->buildtime_deps, module_name);
+  g_return_val_if_fail (stream, NULL);
+
+  stream_list = g_ptr_array_new ();
+  g_ptr_array_add (stream_list, g_strdup (stream));
+  g_ptr_array_add (stream_list, NULL);
+
+  return (GStrv)g_ptr_array_free (stream_list, FALSE);
+}
+
+
+GStrv
+modulemd_module_stream_v3_get_runtime_requirement_streams_as_strv (
+  ModulemdModuleStreamV3 *self, const gchar *module_name)
+{
+  char *stream;
+  GPtrArray *stream_list;
+
+  g_return_val_if_fail (MODULEMD_IS_MODULE_STREAM_V3 (self), NULL);
+
+  stream = g_hash_table_lookup (self->runtime_deps, module_name);
+  g_return_val_if_fail (stream, NULL);
+
+  stream_list = g_ptr_array_new ();
+  g_ptr_array_add (stream_list, g_strdup (stream));
+  g_ptr_array_add (stream_list, NULL);
+
+  return (GStrv)g_ptr_array_free (stream_list, FALSE);
+}
+
+
 void
 modulemd_module_stream_v3_set_xmd (ModulemdModuleStreamV3 *self, GVariant *xmd)
 {
