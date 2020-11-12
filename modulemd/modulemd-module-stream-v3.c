@@ -2153,6 +2153,60 @@ modulemd_module_stream_v3_parse_licenses (yaml_parser_t *parser,
 }
 
 
+static GHashTable *
+modulemd_module_stream_v3_parse_deptable (yaml_parser_t *parser,
+                                          GError **error)
+{
+  MODULEMD_INIT_TRACE ();
+  MMD_INIT_YAML_EVENT (event);
+  g_autoptr (GError) nested_error = NULL;
+  g_autoptr (GHashTable) nested_set = NULL;
+  g_autoptr (GHashTable) deptable = NULL;
+  g_auto (GStrv) stream_names = NULL;
+  GHashTableIter iter;
+  gpointer key;
+  gpointer value;
+  gchar *module_name;
+
+
+  g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+
+  nested_set = modulemd_yaml_parse_nested_set (parser, &nested_error);
+  if (!nested_set)
+    {
+      g_propagate_error (error, g_steal_pointer (&nested_error));
+      return NULL;
+    }
+
+  deptable = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+
+  g_hash_table_iter_init (&iter, nested_set);
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      module_name = (gchar *)key;
+      stream_names = modulemd_ordered_str_keys_as_strv (value);
+
+      if (g_strv_length (stream_names) != 1)
+        {
+          MMD_YAML_ERROR_EVENT_EXIT (
+            error,
+            event,
+            "ModuleStreamV3 dependency %s must specify a single stream",
+            module_name);
+        }
+
+      g_hash_table_replace (
+        deptable, g_strdup (module_name), g_strdup (stream_names[0]));
+
+      g_clear_pointer (&stream_names, g_strfreev);
+    }
+
+  g_clear_pointer (&nested_set, g_hash_table_unref);
+
+  return g_steal_pointer (&deptable);
+}
+
+
 static gboolean
 modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
                                       ModulemdModuleStreamV3 *modulestream,
@@ -2205,8 +2259,8 @@ modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
                                 "buildrequires"))
             {
               /* TODO: fix reading of buildrequires */
-              deptable =
-                modulemd_yaml_parse_string_string_map (parser, &nested_error);
+              deptable = modulemd_module_stream_v3_parse_deptable (
+                parser, &nested_error);
               if (!deptable)
                 {
                   g_propagate_error (error, g_steal_pointer (&nested_error));
@@ -2221,8 +2275,8 @@ modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
                                 "requires"))
             {
               /* TODO: fix reading of requires */
-              deptable =
-                modulemd_yaml_parse_string_string_map (parser, &nested_error);
+              deptable = modulemd_module_stream_v3_parse_deptable (
+                parser, &nested_error);
               if (!deptable)
                 {
                   g_propagate_error (error, g_steal_pointer (&nested_error));
