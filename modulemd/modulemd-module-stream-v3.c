@@ -2258,7 +2258,6 @@ modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
                                 "buildrequires"))
             {
-              /* TODO: fix reading of buildrequires */
               deptable = modulemd_module_stream_v3_parse_deptable (
                 parser, &nested_error);
               if (!deptable)
@@ -2274,7 +2273,6 @@ modulemd_module_stream_v3_parse_deps (yaml_parser_t *parser,
           else if (g_str_equal ((const gchar *)event.data.scalar.value,
                                 "requires"))
             {
-              /* TODO: fix reading of requires */
               deptable = modulemd_module_stream_v3_parse_deptable (
                 parser, &nested_error);
               if (!deptable)
@@ -2938,11 +2936,18 @@ modulemd_module_stream_v3_emit_rpm_map (ModulemdModuleStreamV3 *self,
                                         GError **error);
 
 gboolean
+modulemd_module_stream_v3_emit_deptable (GHashTable *deptable,
+                                         const char *table_key,
+                                         yaml_emitter_t *emitter,
+                                         GError **error);
+
+gboolean
 modulemd_module_stream_v3_emit_yaml (ModulemdModuleStreamV3 *self,
                                      yaml_emitter_t *emitter,
                                      GError **error)
 {
   MODULEMD_INIT_TRACE ();
+  g_autoptr (GError) nested_error = NULL;
 
   if (!modulemd_module_stream_emit_yaml_base (
         MODULEMD_MODULE_STREAM (self), emitter, error))
@@ -2982,11 +2987,18 @@ modulemd_module_stream_v3_emit_yaml (ModulemdModuleStreamV3 *self,
   EMIT_SCALAR (emitter, error, "dependencies");
   EMIT_MAPPING_START (emitter, error);
   EMIT_KEY_VALUE (emitter, error, "platform", self->platform);
-  /* TODO: fix emitting of buildrequires and requires */
-  EMIT_HASHTABLE_KEY_VALUES_IF_NON_EMPTY (
-    emitter, error, "buildrequires", self->buildtime_deps);
-  EMIT_HASHTABLE_KEY_VALUES_IF_NON_EMPTY (
-    emitter, error, "requires", self->runtime_deps);
+  if (!modulemd_module_stream_v3_emit_deptable (
+        self->buildtime_deps, "buildrequires", emitter, error))
+    {
+      g_propagate_error (error, g_steal_pointer (&nested_error));
+      return FALSE;
+    }
+  if (!modulemd_module_stream_v3_emit_deptable (
+        self->runtime_deps, "requires", emitter, error))
+    {
+      g_propagate_error (error, g_steal_pointer (&nested_error));
+      return FALSE;
+    }
   EMIT_MAPPING_END (emitter, error);
 
 
@@ -3137,5 +3149,72 @@ modulemd_module_stream_v3_emit_rpm_map (ModulemdModuleStreamV3 *self,
 
   EMIT_MAPPING_END (emitter, error);
 
+  return TRUE;
+}
+
+
+gboolean
+modulemd_module_stream_v3_emit_deptable (GHashTable *deptable,
+                                         const char *table_key,
+                                         yaml_emitter_t *emitter,
+                                         GError **error)
+{
+  MODULEMD_INIT_TRACE ();
+  MMD_INIT_YAML_EVENT (event);
+  g_autoptr (GError) nested_error = NULL;
+  g_autoptr (GHashTable) nested_set = NULL;
+  g_autoptr (GHashTable) stream_table = NULL;
+  int ret;
+  GHashTableIter iter;
+  gpointer key;
+  gpointer value;
+  gchar *module_name;
+  gchar *stream_name;
+
+  if (deptable == NULL || g_hash_table_size (deptable) == 0)
+    {
+      return TRUE;
+    }
+
+  nested_set = g_hash_table_new_full (
+    g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_hash_table_unref);
+
+  g_hash_table_iter_init (&iter, deptable);
+  while (g_hash_table_iter_next (&iter, &key, &value))
+    {
+      module_name = (gchar *)key;
+      stream_name = (gchar *)value;
+
+      /* stuff the stream name into a sub-table */
+      stream_table =
+        g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+      g_hash_table_add (stream_table, g_strdup (stream_name));
+
+      g_hash_table_insert (
+        nested_set, g_strdup (module_name), g_steal_pointer (&stream_table));
+    }
+
+  ret = mmd_emitter_scalar (
+    emitter, table_key, YAML_PLAIN_SCALAR_STYLE, &nested_error);
+  if (!ret)
+    {
+      g_propagate_prefixed_error (error,
+                                  g_steal_pointer (&nested_error),
+                                  "Failed to emit %s dependencies key: ",
+                                  table_key);
+      return FALSE;
+    }
+
+  ret = modulemd_yaml_emit_nested_set (emitter, nested_set, &nested_error);
+  if (!ret)
+    {
+      g_propagate_prefixed_error (error,
+                                  g_steal_pointer (&nested_error),
+                                  "Failed to emit %s dependencies values: ",
+                                  table_key);
+      return FALSE;
+    }
+
+  g_clear_pointer (&nested_set, g_hash_table_unref);
   return TRUE;
 }
