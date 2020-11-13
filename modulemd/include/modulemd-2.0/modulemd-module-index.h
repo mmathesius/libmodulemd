@@ -32,6 +32,7 @@ G_BEGIN_DECLS
  * This object provides an interface to the complete metadata read from a
  * repository or manually added to this object.
  *
+ * TODO: The following note needs some adjustment...
  * NOTE: When adding or updating this object from YAML, all objects imported
  * will be automatically upgraded to match the highest version of that object
  * that is seen. This means that if the repository has a mix of
@@ -606,7 +607,9 @@ modulemd_module_index_get_stream_mdversion (ModulemdModuleIndex *self);
  * they are not already at that version.
  *
  * Since: 2.0
+ * Deprecated: 2.10: Use modulemd_set_default_stream_mdversion() instead.
  */
+/* TODO: MMD_DEPRECATED_FOR (modulemd_set_default_stream_mdversion) */
 gboolean
 modulemd_module_index_upgrade_streams (
   ModulemdModuleIndex *self,

@@ -132,6 +132,7 @@ modulemd_module_add_obsoletes (ModulemdModule *self,
  * for @stream it is set to at least version two. If non-zero,
  * perform an upgrade to this version while adding @stream to @self. If
  * the @stream already has the same or a higher version, just copy it.
+ * TODO: fix the preceding
  * @error: (out): A #GError containing information about why this function
  * failed.
  *
@@ -146,6 +147,7 @@ modulemd_module_add_obsoletes (ModulemdModule *self,
  * match, the module and stream names were unset or the stream object couldn't
  * be upgraded successfully to the @index_mdversion. Returns
  * %MD_MODULESTREAM_VERSION_UNSET if @stream was NULL.
+ * TODO: fix preceding, return should always match @index_mdversion unless an error occurred
  *
  * Since: 2.0
  */

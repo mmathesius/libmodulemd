@@ -378,19 +378,33 @@ modulemd_module_add_stream (ModulemdModule *self,
   obsoletes = modulemd_module_get_newest_active_obsoletes (
     self, stream_name, modulemd_module_stream_get_context (stream));
 
-  // Obsoletes work only with version two (and possibly higher)
   if (obsoletes && index_mdversion < MD_MODULESTREAM_VERSION_TWO)
     {
-      index_mdversion = MD_MODULESTREAM_VERSION_TWO;
+      /* Obsoletes work only with mdversion two and higher */
+      g_set_error_literal (
+        error,
+        MODULEMD_ERROR,
+        MMD_ERROR_UPGRADE,
+        "ModuleStream obsoletes requires mdversion two or greater.");
+      return MD_MODULESTREAM_VERSION_ERROR;
+    }
+
+  if (modulemd_module_stream_get_mdversion (stream) > index_mdversion)
+    {
+      /* If the stream we were passed is of a higher mdversion version than the
+       * index, fail because we don't handle downgrades.
+       */
+      g_set_error_literal (error,
+                           MODULEMD_ERROR,
+                           MMD_ERROR_UPGRADE,
+                           "ModuleStream downgrades are not supported.");
+      return MD_MODULESTREAM_VERSION_ERROR;
     }
 
   if (modulemd_module_stream_get_mdversion (stream) < index_mdversion)
     {
-      /* If the stream we were passed is of a lower version than the index has
-       * seen before, upgrade it to the index version.
-       *
-       * We only call this if the mdversion is definitely lower, because the
-       * upgrade() routine is not designed to handle downgrades.
+      /* If the stream we were passed is of a lower mdversion version than the
+       * index, upgrade it to the index version.
        */
       newmodule = modulemd_module_stream_upgrade_ext (
         stream, index_mdversion, &nested_error);
@@ -404,7 +418,9 @@ modulemd_module_add_stream (ModulemdModule *self,
     }
   else
     {
-      /* Otherwise, add the current stream to a new temporary module. */
+      /* Otherwise the current stream is already at the desired mdversion, add
+       * it to a new temporary module.
+       */
       newmodule = modulemd_module_new (module_name);
       g_ptr_array_add (newmodule->streams, g_object_ref (stream));
 
