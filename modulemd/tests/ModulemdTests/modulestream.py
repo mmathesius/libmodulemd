@@ -619,8 +619,8 @@ class TestModuleStream(TestBase):
                 stream.set_summary("foo")
                 stream.set_description("bar")
                 stream.add_module_license("MIT")
-                if hasattr(stream, 'set_platform'):
-                    stream.set_platform('f33')
+                if hasattr(stream, "set_platform"):
+                    stream.set_platform("f33")
 
                 # Verify that we can output the XMD successfully
                 Modulemd.set_default_stream_mdversion(version)
@@ -632,7 +632,7 @@ class TestModuleStream(TestBase):
                 self.assertIsNotNone(out_yaml)
 
             # restore default mdversion to avoid unexpected results from other tests
-            Modulemd.set_default_stream_mdversion (default_mdv)
+            Modulemd.set_default_stream_mdversion(default_mdv)
 
     def test_upgrade_v1_to_v2(self):
         v1_stream = Modulemd.ModuleStreamV1.new("SuperModule", "latest")
