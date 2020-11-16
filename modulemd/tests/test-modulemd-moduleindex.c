@@ -677,6 +677,8 @@ module_index_test_stream_upgrade (void)
 }
 
 
+/* NOTE: modulemd_module_index_upgrade_streams() is deprecated */
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
 static void
 module_index_test_index_upgrade (void)
 {
@@ -1186,6 +1188,7 @@ module_index_test_index_upgrade (void)
   /* restore default mdversion to avoid unexpected results from other tests */
   modulemd_set_default_stream_mdversion (default_mdv);
 }
+G_GNUC_END_IGNORE_DEPRECATIONS
 
 
 static void
