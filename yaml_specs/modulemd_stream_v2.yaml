@@ -40,6 +40,13 @@ document: modulemd
 # Module metadata format version
 version: 2
 
+# context_version:
+# Context interpretation, integer, cannot be negative
+# See the data.context field for details.
+#
+# Type: OPTIONAL
+context_version: 0
+
 data:
     # name:
     # The name of the module
@@ -78,13 +85,21 @@ data:
     # same name, stream and version and plays an important role in
     # automatic module stream name expansion.
     #
-    # Filled in by the buildsystem.  A short hash of the module's name,
-    # stream, version and its expanded runtime dependencies. The exact
-    # mechanism for generating the hash is unspecified.
+    # If 'context_version' is unset or equal to zero (0):
+    #   Filled in by the buildsystem.  A short hash of the module's name,
+    #   stream, version and its expanded runtime dependencies. The exact
+    #   mechanism for generating the hash is unspecified.
     #
-    # Type: AUTOMATIC
+    #   Type: AUTOMATIC
     #
-    # Mandatory for module metadata in a yum/dnf repository.
+    #   Mandatory for module metadata in a yum/dnf repository.
+    #
+    # If 'context_version' is set to one (1):
+    #   The context flag is a string of up to ten [a-zA-Z0-9] characters
+    #   representing a build and runtime configuration for this stream. This
+    #   string is arbitrary but must be unique in this module stream.
+    #
+    #   Type: MANDATORY
     context: c0ffee43
 
     # arch:
