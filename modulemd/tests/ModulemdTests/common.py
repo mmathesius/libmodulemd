@@ -46,6 +46,9 @@ class TestCommon(TestBase):
         # Once read in, a modulemd-packager v2 document is a ModuleStream of the
         # same version.
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names are undefined
         self.assertIsNone(doc.get_module_name())
         self.assertIsNone(doc.get_stream_name())
@@ -60,6 +63,9 @@ class TestCommon(TestBase):
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names were set
         self.assertEqual(doc.get_module_name(), "modulename-override")
         self.assertEqual(doc.get_stream_name(), "streamname-override")
@@ -72,6 +78,9 @@ class TestCommon(TestBase):
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.PackagerV3)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.PackagerVersionEnum.THREE
+        )
 
         # Read PackagerV3 with module/stream name overrides
         doc = Modulemd.read_packager_file(
@@ -83,6 +92,9 @@ class TestCommon(TestBase):
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.PackagerV3)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.PackagerVersionEnum.THREE
+        )
         # Confirm module and stream names were set
         self.assertEqual(doc.get_module_name(), "modulename-override")
         self.assertEqual(doc.get_stream_name(), "streamname-override")
@@ -95,6 +107,9 @@ class TestCommon(TestBase):
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names are correct
         self.assertEqual(doc.get_module_name(), "foo")
         self.assertEqual(doc.get_stream_name(), "latest")
@@ -109,6 +124,9 @@ class TestCommon(TestBase):
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names were set
         self.assertEqual(doc.get_module_name(), "modulename-override")
         self.assertEqual(doc.get_stream_name(), "streamname-override")
@@ -145,6 +163,9 @@ data:
         # Once read in, a modulemd-packager document is a ModuleStream of the
         # same version.
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names are undefined
         self.assertIsNone(doc.get_module_name())
         self.assertIsNone(doc.get_stream_name())
@@ -155,6 +176,9 @@ data:
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names were set
         self.assertEqual(doc.get_module_name(), "modulename-override")
         self.assertEqual(doc.get_stream_name(), "streamname-override")
@@ -173,6 +197,9 @@ data:
         doc = Modulemd.read_packager_string(minimal_valid)
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.PackagerV3)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.PackagerVersionEnum.THREE
+        )
         # Confirm module and stream names are undefined
         self.assertIsNone(doc.get_module_name())
         self.assertIsNone(doc.get_stream_name())
@@ -183,6 +210,9 @@ data:
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.PackagerV3)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.PackagerVersionEnum.THREE
+        )
         # Confirm module and stream names were set
         self.assertEqual(doc.get_module_name(), "modulename-override")
         self.assertEqual(doc.get_stream_name(), "streamname-override")
@@ -202,6 +232,9 @@ data:
         doc = Modulemd.read_packager_string(minimal_valid)
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names are undefined
         self.assertIsNone(doc.get_module_name())
         self.assertIsNone(doc.get_stream_name())
@@ -212,6 +245,9 @@ data:
         )
         self.assertIsNotNone(doc)
         self.assertIs(type(doc), Modulemd.ModuleStreamV2)
+        self.assertEqual(
+            doc.get_mdversion(), Modulemd.ModuleStreamVersionEnum.TWO
+        )
         # Confirm module and stream names were set
         self.assertEqual(doc.get_module_name(), "modulename-override")
         self.assertEqual(doc.get_stream_name(), "streamname-override")
