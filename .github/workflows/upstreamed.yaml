@@ -30,3 +30,23 @@ jobs:
           DOC_TOKEN: ${{ secrets.DOC_TOKEN }}
         run: |
           ./.ci/ci-docs.sh
+
+  autoformat:
+    name: Auto-format code
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Format
+        # the 'sed' below is a work-around to an ldd bug
+        run: |
+            $GITHUB_WORKSPACE/.ci/fedora/get_fedora_deps.sh
+            sed -i -e 's/test -r/test -f/g' -e 's/test -x/test -f/g' /bin/ldd
+            meson setup --buildtype=debugoptimized -Dverbose_tests=false /tmp/ci $GITHUB_WORKSPACE
+            meson test --suite formatters -C /tmp/ci --print-errorlogs -t 5
+
+      - name: Push if changes
+        run: |
+            git add -u
+            $GITHUB_WORKSPACE/.ci/fedora/git_push_if_changes.sh
