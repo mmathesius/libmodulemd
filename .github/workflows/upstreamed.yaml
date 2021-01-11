@@ -2,11 +2,13 @@ name: Upstreamed
 on:
   push:
     branches:
-      - main
+      - autoformat-test # for testing
+#     - main # temporarily disabled
 
 jobs:
   static_analysis:
     name: Static Analysis
+    if: false # disabled for testing
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout code
@@ -20,6 +22,7 @@ jobs:
 
   docs:
     name: Publish Documentation
+    if: false # disabled for testing
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout code
@@ -38,15 +41,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Format
-        # the 'sed' below is a work-around to an ldd bug
+      - name: Format code
         run: |
-            $GITHUB_WORKSPACE/.ci/fedora/get_fedora_deps.sh
-            sed -i -e 's/test -r/test -f/g' -e 's/test -x/test -f/g' /bin/ldd
-            meson setup --buildtype=debugoptimized -Dverbose_tests=false /tmp/ci $GITHUB_WORKSPACE
-            meson test --suite formatters -C /tmp/ci --print-errorlogs -t 5
+          ./.ci/ci-autoformat.sh
 
-      - name: Push if changes
+      - name: Push any formatting changes
         run: |
             git add -u
-            $GITHUB_WORKSPACE/.ci/fedora/git_push_if_changes.sh
+            $GITHUB_WORKSPACE/.ci/git_push_if_changes.sh
