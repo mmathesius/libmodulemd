@@ -40,8 +40,7 @@ if [ $err = 0 ]; then
     git config user.email "$git_email"
     git commit -m "$git_msg"
     git show
-    echo skipping push
-    # git push
+    git push
 fi
 set -e
 
