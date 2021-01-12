@@ -29,7 +29,11 @@ modulemd_get_version (void)
 
 
 static ModulemdModuleIndex *
-verify_load (int ret, ModulemdModuleIndex *idx, GPtrArray *failures, GError **error, GError **nested_error);
+verify_load (int ret,
+             ModulemdModuleIndex *idx,
+             GPtrArray *failures,
+             GError **error,
+             GError **nested_error);
 
 ModulemdModuleIndex *
 modulemd_load_file (const gchar *yaml_file, GError **error)

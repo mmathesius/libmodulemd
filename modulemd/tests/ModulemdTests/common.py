@@ -37,7 +37,11 @@ class TestCommon(TestBase):
             return
 
         # Validate that the PackagerV2 specification parses correctly
-        doc = Modulemd.read_packager_file(os.path.join(self.source_root, "yaml_specs/modulemd_packager_v2.yaml"))
+        doc = Modulemd.read_packager_file(
+            os.path.join(
+                self.source_root, "yaml_specs/modulemd_packager_v2.yaml"
+            )
+        )
         self.assertIsNotNone(doc)
         # Once read in, a modulemd-packager v2 document is a ModuleStream of the
         # same version.
