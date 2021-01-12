@@ -34,6 +34,7 @@ set +e
 git commit -m "$git_msg" --dry-run
 err=$?
 if [ $err = 0 ]; then
+    echo committing and pushing changes
     set -e
     git config user.name "$git_user"
     git config user.email "$git_email"

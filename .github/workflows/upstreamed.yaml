@@ -48,4 +48,4 @@ jobs:
       - name: Push any formatting changes
         run: |
             git add -u
-            $GITHUB_WORKSPACE/.ci/git_push_if_changes.sh
+            $GITHUB_WORKSPACE/.ci/git_push_if_changes.sh -m "Code auto-formatting"
