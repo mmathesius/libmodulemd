@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-#Exit on failures
+# Exit on failures
 set -e
 set -x
 
-RETRY_CMD=/builddir/.ci/retry-command.sh
+: ${FORMAT_DEST_DIR:?parameter must be set}
 
 pushd /builddir/
 
-# Build the code under GCC and run documentation generation
+# Build the code under GCC and run code auto-formatting
 meson setup \
       --buildtype=debugoptimized \
       -Dverbose_tests=false \
